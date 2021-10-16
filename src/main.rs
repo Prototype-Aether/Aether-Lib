@@ -1,3 +1,9 @@
+use network_module::PacketQueue;
+
 fn main() {
-    println!("Hello, world!");
+    let mut q = PacketQueue::new();
+
+    q.send(String::from("Hello"));
+    q.send(String::from("Hello again"));
+    q.print();
 }
