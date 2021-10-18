@@ -1,35 +1,13 @@
-use std::collections::VecDeque;
+pub mod packet;
 
-mod packet;
-use packet::UDPPacket;
+#[cfg(test)]
+mod packet_test {
+    use crate::packet;
 
-pub struct PacketQueue {
-    in_queue: VecDeque<UDPPacket>,
-    out_queue: VecDeque<UDPPacket>,
-}
-
-impl PacketQueue {
-    pub fn new() -> PacketQueue {
-        PacketQueue {
-            in_queue: VecDeque::new(),
-            out_queue: VecDeque::new(),
-        }
-    }
-
-    pub fn send(&mut self, data: String) {
-        let s_packet = UDPPacket {
-            id: 0,
-            sequence: 0,
-            ack: 0,
-            length: data.len(),
-            payload: data,
-        };
-        self.out_queue.push_back(s_packet);
-    }
-
-    pub fn print(&self) {
-        for p in &self.out_queue {
-            println!("{} : {}", p.id, p.payload);
-        }
+    #[test]
+    fn ack_test() {
+        let pack = packet::Packet::new(0, 0);
+        assert!(pack.ack_begin <= pack.ack_end.into());
+        assert!(pack.miss_count as u32 <= (pack.ack_end as u32 - pack.ack_begin));
     }
 }
