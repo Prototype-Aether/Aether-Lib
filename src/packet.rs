@@ -27,7 +27,7 @@ impl Packet {
     }
 
     // compile the packet structure into raw bytes
-    pub fn compile() -> Vec<u8> {
+    pub fn compile(&self) -> Vec<u8> {
         Vec::new()
     }
 }
