@@ -9,8 +9,4 @@ edition = "2018"
 name = "network_module"
 path = "src/lib.rs"
 
-[[bin]]
-name = "main"
-path = "src/main.rs"
-
 [dependencies]

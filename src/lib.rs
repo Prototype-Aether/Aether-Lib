@@ -1,20 +1,8 @@
-/*mod packet {
-    pub struct UDPPacket {
-        pub id: u32,
-        pub sequence: u32,
-        pub ack: u32,
-        pub length: usize,
-        pub payload: String,
-    }
-}
-*/
-
-pub mod packet;
-
-use packet::UDPPacket;
 use std::collections::VecDeque;
 
-#[allow(dead_code)]
+mod packet;
+use packet::UDPPacket;
+
 pub struct PacketQueue {
     in_queue: VecDeque<UDPPacket>,
     out_queue: VecDeque<UDPPacket>,
@@ -29,7 +17,7 @@ impl PacketQueue {
     }
 
     pub fn send(&mut self, data: String) {
-        let s_packet = packet::UDPPacket {
+        let s_packet = UDPPacket {
             id: 0,
             sequence: 0,
             ack: 0,
