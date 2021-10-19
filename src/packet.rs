@@ -35,7 +35,13 @@ impl Packet {
         u32_vec.push(nu32 as u8);
         u32_vec
     }
-    pub fn compile(self) -> Vec<u8> {
+    fn compile_u16(nu16: u16) -> Vec<u8> {
+        let mut u16_vec = Vec::<u8>::new();
+        u16_vec.push((nu16 >> 8) as u8);
+        u16_vec.push(nu16 as u8);
+        u16_vec
+    }
+    pub fn compile(&self) -> Vec<u8> {
         
         let packet_default = Packet{
             id: self.id,
