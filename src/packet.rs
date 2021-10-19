@@ -102,41 +102,43 @@ impl From<Vec<u8>> for Packet {
             payload: Vec::new(),
         };
         
-        // Packet ID converting u8 to u32
+        // Packet ID converting u8 to u32(vector)
         let id_vector = bytes[0..4].to_vec();
         let id_slice = id_vector.as_slice();
         let id_array:[u8;4] = id_slice.try_into().expect("Error converting to u32");
         packet_default.id = u32::from_be_bytes(id_array);
+        
 
-        // Packet Sequence converting u8 to u32
+        // Packet Sequence converting u8 to u32(vector)
         let sequence_vector = bytes[4..8].to_vec();
         let sequence_slice = sequence_vector.as_slice();
         let sequence_array:[u8;4] = sequence_slice.try_into().expect("Error converting to u32");
         packet_default.sequence = u32::from_be_bytes(sequence_array);
 
-        // Packet Ack Begin converting u8 to u32
+        // Packet Ack Begin converting u8 to u32(vector)
         let ack_begin_vector = bytes[8..12].to_vec();
         let ack_begin_slice = ack_begin_vector.as_slice();
         let ack_begin_array:[u8;4] = ack_begin_slice.try_into().expect("Error converting to u32");
         packet_default.ack_begin = u32::from_be_bytes(ack_begin_array);
 
-        // Packet Ack End converting u8 to u8
+        // Packet Ack End converting u8 to u8(vector)
         packet_default.ack_end = bytes[12];
 
-        // Packet Miss Count converting u8 to u8
+        // Packet Miss Count converting u8 to u8(vector)
         packet_default.miss_count = bytes[13];
 
-        // Packet Miss converting u8 to u8
+        // Packet Miss converting u8 to u8(vector)
         packet_default.miss = bytes[14..14+packet_default.miss_count as usize].to_vec();
 
-        // Packet Length converting u8 to u16
-        let length_vector = bytes[20..22].to_vec();
+        // Packet Length converting u8 to u16(vector)
+        let length_vector = bytes[14+packet_default.miss_count as usize..16+packet_default.miss_count as usize].to_vec();
         let length_slice = length_vector.as_slice();
         let length_array:[u8;2] = length_slice.try_into().expect("Error converting to u16");
         packet_default.length = u16::from_be_bytes(length_array);
 
-        // Packet Payload converting u8 to u8
-        packet_default.payload = bytes[22..22+packet_default.length as usize].to_vec();
+        // Packet Payload converting u8 to u8(vector)
+        packet_default.payload = bytes[16+packet_default.miss_count as usize..16+packet_default.miss_count as usize+packet_default.length as usize].to_vec();
+
 
         packet_default
         
