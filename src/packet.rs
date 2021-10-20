@@ -135,12 +135,12 @@ mod tests {
 
     #[test]
     fn compile_test() {
-        let mut pack = packet::Packet::new(52, 32);
-        let mut ack_list = AcknowledgmentList::new(65);
-        ack_list.insert(66);
-        ack_list.insert(67);
-        ack_list.insert(69);
-        ack_list.insert(70);
+        let mut pack = packet::Packet::new(2112352, 32850943);
+        let mut ack_list = AcknowledgmentList::new(329965);
+        ack_list.insert(329966);
+        ack_list.insert(329967);
+        ack_list.insert(329969);
+        ack_list.insert(329970);
 
         pack.add_ack(ack_list.get());
         pack.append_payload(vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
