@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-pub struct Acknowledment {
+pub struct Acknowledgment {
     pub ack_begin: u32,
     pub ack_end: u8,
     pub miss_count: u8,
@@ -97,7 +97,7 @@ impl AcknowledgmentList {
         self.list.insert(n, true);
     }
 
-    pub fn get(&self) -> Acknowledment {
+    pub fn get(&self) -> Acknowledgment {
         let mut miss: Vec<u8> = Vec::new();
 
         for i in 0..(self.ack_end + 1) {
@@ -108,7 +108,7 @@ impl AcknowledgmentList {
             }
         }
 
-        Acknowledment {
+        Acknowledgment {
             ack_begin: self.ack_begin,
             ack_end: self.ack_end,
             miss_count: miss.len() as u8,
