@@ -27,7 +27,13 @@ impl Packet {
             payload: Vec::new(),
         }
     }
-
+    pub fn add_ack(&mut self, ack: Acknowledgment) {
+        self.ack = ack;
+    }
+    pub fn append_payload(&mut self, payload: Vec<u8>) {
+        self.payload.extend(payload);
+        self.length = self.payload.len() as u16;
+    }
     pub fn compile(&self) -> Vec<u8> {
         // Vector to store final compiled packet structure
         let mut packet_vector = Vec::<u8>::new();
@@ -62,7 +68,6 @@ impl Packet {
         packet_vector
     }
 }
-
 impl From<Vec<u8>> for Packet {
     // Create a packet structure from the received raw bytes
     fn from(bytes: Vec<u8>) -> Packet {
