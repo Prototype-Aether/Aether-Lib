@@ -1,4 +1,5 @@
 use crate::acknowledgment::Acknowledgment;
+use crate::util::{compile_u16, compile_u32};
 use std::convert::From;
 use std::convert::TryInto;
 use std::vec::Vec;
@@ -27,53 +28,33 @@ impl Packet {
         }
     }
 
-    // compile the packet structure into raw bytes
-    fn compile_u32(nu32: u32) -> Vec<u8> {
-        let mut u32_vec = Vec::<u8>::new();
-        u32_vec.push((nu32 >> 24) as u8);
-        u32_vec.push((nu32 >> 16) as u8);
-        u32_vec.push((nu32 >> 8) as u8);
-        u32_vec.push(nu32 as u8);
-        u32_vec
-    }
-
-    fn compile_u16(nu16: u16) -> Vec<u8> {
-        let mut u16_vec = Vec::<u8>::new();
-        u16_vec.push((nu16 >> 8) as u8);
-        u16_vec.push(nu16 as u8);
-        u16_vec
-    }
-
     pub fn compile(&self) -> Vec<u8> {
         // Vector to store final compiled packet structure
         let mut packet_vector = Vec::<u8>::new();
+
         // Packet ID converting u32 to u8(vector)
-        let slice_id = Packet::compile_u32(self.id);
+        let slice_id = compile_u32(self.id);
         packet_vector.extend(slice_id);
 
         // Packet Sequence converting u32 to u8(vector)
-        let slice_sequence = Packet::compile_u32(self.sequence);
+        let slice_sequence = compile_u32(self.sequence);
         packet_vector.extend(slice_sequence);
 
         // Packet Ack Begin converting u32 to u8(vector)
-        let slice_ack_begin = Packet::compile_u32(self.ack.ack_begin);
+        let slice_ack_begin = compile_u32(self.ack.ack_begin);
         packet_vector.extend(slice_ack_begin);
 
-        // Packet Ack End converting u8 to u8(vector)
         packet_vector.push(self.ack.ack_end);
 
-        // Packet Miss Count converting u8 to u8(vector)
         packet_vector.push(self.ack.miss_count);
 
-        // Packet Miss converting u8 to u8(vector)
         let slice_miss = self.ack.miss.clone();
         packet_vector.extend(slice_miss);
 
         // Packet Length converting u16 to u8(vector)
-        let slice_length = Packet::compile_u16(self.length);
+        let slice_length = compile_u16(self.length);
         packet_vector.extend(slice_length);
 
-        // Packet Payload converting u8 to u8(vector)
         let slice_payload = self.payload.clone();
         packet_vector.extend(slice_payload);
 
@@ -110,13 +91,10 @@ impl From<Vec<u8>> for Packet {
         let ack_begin_array = bytes[8..12].try_into().unwrap();
         packet_default.ack.ack_begin = u32::from_be_bytes(ack_begin_array);
 
-        // Packet Ack End converting u8 to u8(vector)
         packet_default.ack.ack_end = bytes[12];
 
-        // Packet Miss Count converting u8 to u8(vector)
         packet_default.ack.miss_count = bytes[13];
 
-        // Packet Miss converting u8 to u8(vector)
         packet_default.ack.miss = bytes[14..14 + packet_default.ack.miss_count as usize].to_vec();
 
         // Packet Length converting u8 to u16(vector)
@@ -126,7 +104,6 @@ impl From<Vec<u8>> for Packet {
             .unwrap();
         packet_default.length = u16::from_be_bytes(length_array);
 
-        // Packet Payload converting u8 to u8(vector)
         packet_default.payload = bytes[16 + packet_default.ack.miss_count as usize
             ..16 + packet_default.ack.miss_count as usize + packet_default.length as usize]
             .to_vec();
