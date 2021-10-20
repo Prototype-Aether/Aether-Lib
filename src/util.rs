@@ -7,7 +7,7 @@
 /// # Examples
 ///
 /// ```
-/// use util::compile_u32;
+/// use network_module::util::compile_u32;
 /// let bytes: Vec<u8> = compile_u32(32);
 /// ```
 pub fn compile_u32(nu32: u32) -> Vec<u8> {
@@ -28,7 +28,7 @@ pub fn compile_u32(nu32: u32) -> Vec<u8> {
 /// # Examples
 ///
 /// ```
-/// use util::compile_u16;
+/// use network_module::util::compile_u16;
 /// let bytes: Vec<u8> = compile_u16(3242);
 /// ```
 pub fn compile_u16(nu16: u16) -> Vec<u8> {

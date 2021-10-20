@@ -23,8 +23,24 @@ impl AcknowledgmentCheck {
 
     fn update_begin(&mut self) {
         while self.check(&(self.begin + 1)) {
-            self.list.remove(&self.begin);
+            self.list.remove(&(self.begin + 1));
             self.begin += 1;
+        }
+    }
+
+    pub fn acknowledge(&mut self, ack: Acknowledgment) {
+        let mut missing: HashMap<u8, bool> = HashMap::new();
+
+        for i in ack.miss {
+            missing.insert(i, true);
+        }
+
+        for i in 0..(ack.ack_end + 1) {
+            match missing.get(&i) {
+                None => self.insert(i as u32 + ack.ack_begin),
+                Some(false) => self.insert(i as u32 + ack.ack_begin),
+                Some(true) => (),
+            }
         }
     }
 
@@ -124,14 +140,14 @@ impl AcknowledgmentList {
 #[cfg(test)]
 mod tests {
     mod ack_check {
-        use crate::acknowledgment::AcknowledgmentCheck;
+        use crate::acknowledgment::{AcknowledgmentCheck, AcknowledgmentList};
         #[test]
-        fn false_positive() {
+        fn false_positive_raw() {
             let values = [16, 1024, 99, 45];
 
             let check = [19, 32, 63, 6000];
 
-            let mut ack_check = AcknowledgmentCheck::new(0);
+            let mut ack_check = AcknowledgmentCheck::new(16);
 
             for v in values {
                 ack_check.insert(v);
@@ -143,15 +159,57 @@ mod tests {
         }
 
         #[test]
-        fn true_negatives() {
+        fn true_negatives_raw() {
             let values = [16, 1024, 99, 45];
 
-            let mut ack_check = AcknowledgmentCheck::new(0);
+            let mut ack_check = AcknowledgmentCheck::new(16);
 
             for v in values {
                 ack_check.insert(v);
             }
 
+            for c in values {
+                assert!(ack_check.check(&c));
+            }
+        }
+
+        #[test]
+        fn false_positives() {
+            let values = [16, 20, 17, 18, 22, 23];
+
+            let check = [19, 21, 63];
+
+            let mut ack_list = AcknowledgmentList::new(16);
+
+            for v in values {
+                ack_list.insert(v);
+            }
+
+            let mut ack_check = AcknowledgmentCheck::new(16);
+
+            let ack = ack_list.get();
+
+            ack_check.acknowledge(ack);
+            for c in check {
+                assert!(!ack_check.check(&c));
+            }
+        }
+
+        #[test]
+        fn true_negatives() {
+            let values = [16, 17, 18, 20, 21, 22, 32];
+
+            let mut ack_list = AcknowledgmentList::new(16);
+
+            for v in values {
+                ack_list.insert(v);
+            }
+
+            let mut ack_check = AcknowledgmentCheck::new(16);
+
+            let ack = ack_list.get();
+
+            ack_check.acknowledge(ack);
             for c in values {
                 assert!(ack_check.check(&c));
             }
