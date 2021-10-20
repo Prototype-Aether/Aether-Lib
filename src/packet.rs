@@ -118,7 +118,7 @@ impl From<Vec<u8>> for Packet {
 }
 #[cfg(test)]
 mod tests {
-    use crate::packet;
+    use crate::{acknowledgment::AcknowledgmentList, packet};
 
     #[test]
     fn range_test() {
@@ -129,19 +129,26 @@ mod tests {
 
     #[test]
     fn compile_test() {
-        let pack = packet::Packet::new(52, 32);
+        let mut pack = packet::Packet::new(52, 32);
+        let mut ack_list = AcknowledgmentList::new(65);
+        ack_list.insert(66);
+        ack_list.insert(67);
+        ack_list.insert(69);
+        ack_list.insert(70);
 
+        pack.add_ack(ack_list.get());
+        pack.append_payload(vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
         let compiled = pack.compile();
 
         let pack_out = packet::Packet::from(compiled);
 
-        assert!(pack.id == pack_out.id);
-        assert!(pack.sequence == pack_out.sequence);
-        assert!(pack.ack.ack_begin == pack_out.ack.ack_begin);
-        assert!(pack.ack.ack_end == pack_out.ack.ack_end);
-        assert!(pack.ack.miss_count == pack_out.ack.miss_count);
-        assert!(pack.ack.miss == pack_out.ack.miss);
-        assert!(pack.length == pack_out.length);
-        assert!(pack.payload == pack_out.payload);
+        assert_eq!(pack.id, pack_out.id);
+        assert_eq!(pack.sequence, pack_out.sequence);
+        assert_eq!(pack.ack.ack_begin, pack_out.ack.ack_begin);
+        assert_eq!(pack.ack.ack_end, pack_out.ack.ack_end);
+        assert_eq!(pack.ack.miss_count, pack_out.ack.miss_count);
+        assert_eq!(pack.ack.miss, pack_out.ack.miss);
+        assert_eq!(pack.length, pack_out.length);
+        assert_eq!(pack.payload, pack_out.payload);
     }
 }
