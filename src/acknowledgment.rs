@@ -120,3 +120,113 @@ impl AcknowledgmentList {
         self.get().miss_count == 0
     }
 }
+
+#[cfg(test)]
+mod tests {
+    mod ack_check {
+        use crate::acknowledgment::AcknowledgmentCheck;
+        #[test]
+        fn false_positive() {
+            let values = [16, 1024, 99, 45];
+
+            let check = [19, 32, 63, 6000];
+
+            let mut ack_check = AcknowledgmentCheck::new(0);
+
+            for v in values {
+                ack_check.insert(v);
+            }
+
+            for c in check {
+                assert!(!ack_check.check(&c));
+            }
+        }
+
+        #[test]
+        fn true_negatives() {
+            let values = [16, 1024, 99, 45];
+
+            let mut ack_check = AcknowledgmentCheck::new(0);
+
+            for v in values {
+                ack_check.insert(v);
+            }
+
+            for c in values {
+                assert!(ack_check.check(&c));
+            }
+        }
+    }
+
+    mod ack_list {
+        use crate::acknowledgment::AcknowledgmentList;
+
+        #[test]
+        fn false_positives() {
+            let sequence = 10;
+            let mut ack_list = AcknowledgmentList::new(sequence);
+
+            let values = [10, 20, 30, 40];
+
+            let check = [12, 15, 320, 44, 39];
+
+            for v in values {
+                ack_list.insert(v);
+            }
+
+            for c in check {
+                assert!(!ack_list.check(&c));
+            }
+        }
+
+        #[test]
+        fn true_negatives() {
+            let sequence = 10;
+            let mut ack_list = AcknowledgmentList::new(sequence);
+
+            let values = [10, 20, 30, 40];
+
+            for v in values {
+                ack_list.insert(v);
+            }
+
+            for c in values {
+                assert!(ack_list.check(&c));
+            }
+        }
+
+        #[test]
+        fn missing_test() {
+            let sequence = 10;
+            let mut ack_list = AcknowledgmentList::new(sequence);
+
+            let misses = [11, 14, 22, 28];
+
+            for v in sequence..(sequence + 20) {
+                if !misses.contains(&v) {
+                    ack_list.insert(v);
+                }
+            }
+
+            let ack = ack_list.get();
+
+            for m in ack.miss {
+                assert!(misses.contains(&(m as u32 + sequence)));
+            }
+        }
+
+        #[test]
+        fn check_complete_test() {
+            let sequence = 10;
+            let mut ack_list = AcknowledgmentList::new(sequence);
+
+            let values = sequence..(sequence + 20);
+
+            for v in values {
+                ack_list.insert(v);
+            }
+
+            assert!(ack_list.is_complete());
+        }
+    }
+}
