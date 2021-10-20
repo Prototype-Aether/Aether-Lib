@@ -1,6 +1,6 @@
 use std::convert::From;
-use std::vec::Vec;
 use std::convert::TryInto;
+use std::vec::Vec;
 
 pub struct Packet {
     pub id: u32,
@@ -43,9 +43,8 @@ impl Packet {
         u16_vec
     }
     pub fn compile(&self) -> Vec<u8> {
-        
         // Vector to store final compiled packet structure
-        let mut packet_vector= Vec::<u8>::new();
+        let mut packet_vector = Vec::<u8>::new();
         // Packet ID converting u32 to u8(vector)
         let slice_id = Packet::compile_u32(self.id);
         packet_vector.extend(slice_id);
@@ -65,7 +64,7 @@ impl Packet {
         packet_vector.push(self.miss_count);
 
         // Packet Miss converting u8 to u8(vector)
-        let slice_miss=self.miss.clone();
+        let slice_miss = self.miss.clone();
         packet_vector.extend(slice_miss);
 
         // Packet Length converting u16 to u8(vector)
@@ -82,7 +81,6 @@ impl Packet {
 }
 
 impl From<Vec<u8>> for Packet {
-    
     // Create a packet structure from the received raw bytes
     fn from(bytes: Vec<u8>) -> Packet {
         let mut packet_default = Packet {
@@ -95,7 +93,7 @@ impl From<Vec<u8>> for Packet {
             length: 0,
             payload: Vec::new(),
         };
-        
+
         // Packet ID converting u8 to u32(vector)
         let id_array = bytes[0..4].try_into().unwrap();
         packet_default.id = u32::from_be_bytes(id_array);
@@ -115,16 +113,49 @@ impl From<Vec<u8>> for Packet {
         packet_default.miss_count = bytes[13];
 
         // Packet Miss converting u8 to u8(vector)
-        packet_default.miss = bytes[14..14+packet_default.miss_count as usize].to_vec();
+        packet_default.miss = bytes[14..14 + packet_default.miss_count as usize].to_vec();
 
         // Packet Length converting u8 to u16(vector)
-        let length_array = bytes[14+packet_default.miss_count as usize..16+packet_default.miss_count as usize].try_into().unwrap();
+        let length_array = bytes
+            [14 + packet_default.miss_count as usize..16 + packet_default.miss_count as usize]
+            .try_into()
+            .unwrap();
         packet_default.length = u16::from_be_bytes(length_array);
 
         // Packet Payload converting u8 to u8(vector)
-        packet_default.payload = bytes[16+packet_default.miss_count as usize..16+packet_default.miss_count as usize+packet_default.length as usize].to_vec();
+        packet_default.payload = bytes[16 + packet_default.miss_count as usize
+            ..16 + packet_default.miss_count as usize + packet_default.length as usize]
+            .to_vec();
 
         packet_default
-        
+    }
+}
+#[cfg(test)]
+mod tests {
+    use crate::packet;
+
+    #[test]
+    fn range_test() {
+        let pack = packet::Packet::new(0, 0);
+        assert!(pack.ack_begin <= pack.ack_end.into());
+        assert!(pack.miss_count as u32 <= (pack.ack_end as u32 - pack.ack_begin));
+    }
+
+    #[test]
+    fn compile_test() {
+        let pack = packet::Packet::new(52, 32);
+
+        let compiled = pack.compile();
+
+        let pack_out = packet::Packet::from(compiled);
+
+        assert!(pack.id == pack_out.id);
+        assert!(pack.sequence == pack_out.sequence);
+        assert!(pack.ack_begin == pack_out.ack_begin);
+        assert!(pack.ack_end == pack_out.ack_end);
+        assert!(pack.miss_count == pack_out.miss_count);
+        assert!(pack.miss == pack_out.miss);
+        assert!(pack.length == pack_out.length);
+        assert!(pack.payload == pack_out.payload);
     }
 }
