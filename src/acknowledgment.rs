@@ -1,19 +1,45 @@
 use std::collections::HashMap;
 
+/// Structure to reperesent the acknowledgment format
 pub struct Acknowledgment {
+    /// The sequence number of the packet from which the acknowledgment begins
     pub ack_begin: u32,
+
+    /// The number of packets that this acknowledgment includes. ACK number of
+    /// the last packet to be acknowledged relative to the `ack_begin`
+    /// > Note: If the sequence number of a packet is `ack`, the relative sequence
+    ///   number to `ack_begin` would be `ack - ack_begin`.
     pub ack_end: u8,
+
+    /// Number of packets from `ack_begin` till `ack_begin + ack_end` that are
+    /// not acknowledged
     pub miss_count: u8,
+
+    /// Vector of ack numbers (relative to `ack_begin`) which are missing.
+    /// Length of the vector is `miss_count`.
     pub miss: Vec<u8>,
 }
 
-// Acknowledgments received
+/// A checklist to store all acknowledgments received.
+/// * Used by sending module to test if a packet has already been acknowledged
+///   before sending it.
+/// * Used by receiving module to add acknowledgments that have been received
 pub struct AcknowledgmentCheck {
+    /// The sequence number of begining of the list. All sequence numbers below
+    /// this have been acknowledged already.
     begin: u32,
+
+    /// A HashMap to determine what all numbers have been acknowledged that are
+    /// greater than `begin`
     list: HashMap<u32, bool>,
 }
 
 impl AcknowledgmentCheck {
+    /// Create a new instance of `AcknowledgmentCheck` list
+    ///
+    /// # Arguments
+    ///
+    /// * `begin`   -   Initial value of begin sequence number
     pub fn new(begin: u32) -> AcknowledgmentCheck {
         AcknowledgmentCheck {
             begin,
@@ -21,6 +47,9 @@ impl AcknowledgmentCheck {
         }
     }
 
+    /// Update value of begin if consequitive values in `list` after begin have
+    /// been acknowledged.
+    /// This helps keep `check()` more efficient
     fn update_begin(&mut self) {
         while self.check(&(self.begin + 1)) {
             self.list.remove(&(self.begin + 1));
@@ -28,6 +57,12 @@ impl AcknowledgmentCheck {
         }
     }
 
+    /// Add acknowledgment to the list based on the `Acknowledgment` recevied
+    ///
+    /// # Arguments
+    ///
+    /// * `ack` -   The acknowledgment which is instance of `Acknowledgment`.
+    ///             This will be obtained from the `Packet` received.
     pub fn acknowledge(&mut self, ack: Acknowledgment) {
         let mut missing: HashMap<u8, bool> = HashMap::new();
 
@@ -44,6 +79,12 @@ impl AcknowledgmentCheck {
         }
     }
 
+    /// Insert a specific acknowledgment number into the list
+    ///
+    /// # Arguments
+    ///
+    /// * `ack` -   The acknowledgment number that was received from the other
+    ///             peer
     pub fn insert(&mut self, ack: u32) {
         if ack > self.begin {
             self.list.insert(ack, true);
@@ -51,6 +92,12 @@ impl AcknowledgmentCheck {
         self.update_begin();
     }
 
+    /// Check if the packet with the given sequence number has been acknowledged
+    ///
+    /// # Arguments
+    ///
+    /// * `ack` -   The sequence number which needs to be matched and check if
+    ///             it is present in the list (acknowledged).
     pub fn check(&self, ack: &u32) -> bool {
         if *ack <= self.begin {
             return true;
@@ -63,14 +110,31 @@ impl AcknowledgmentCheck {
     }
 }
 
-// Acknowledgments to be sent
+/// A structure to store the acknowledgments that need to be sent.
+/// * Used by receiving module to add acknowledgments for the packets that are received
+/// * Used by sending module to get acknowledgments to be sent with the next packet
 pub struct AcknowledgmentList {
+    /// A `HashMap` to store the sequence numbers of packets (relative to `ack_begin`)
+    /// from `0` to `ack_end` that have been received and need to be acknowledged
     list: HashMap<u8, bool>,
+
+    /// The sequence number of the first packet included in this acknowledgment
     ack_begin: u32,
+
+    /// The sequence number (relative to `ack_begin`) of the last packet in this
+    /// acknowledgment.
+    /// > Note: If the sequence number of a packet is `ack`, the relative sequence
+    /// number to `ack_begin` would be `ack - ack_begin`.
     ack_end: u8,
 }
 
 impl AcknowledgmentList {
+    /// Creates a new instance of `AcknowledgmentList`
+    ///
+    /// # Arguments
+    ///
+    /// * `ack_begin`   -   The `ack_begin` value from which this acknowledgment
+    ///                     begins
     pub fn new(ack_begin: u32) -> AcknowledgmentList {
         let mut list: HashMap<u8, bool> = HashMap::new();
         list.insert(0, true);
@@ -81,6 +145,11 @@ impl AcknowledgmentList {
         }
     }
 
+    /// Check if the given sequence number has been added to the list
+    ///
+    /// # Arguments
+    ///
+    /// * `ack` -   The sequence number of the packet to check
     pub fn check(&self, ack: &u32) -> bool {
         if *ack == self.ack_begin {
             return true;
@@ -95,6 +164,12 @@ impl AcknowledgmentList {
         }
     }
 
+    /// Insert a sequence number into the acknowledgment list
+    ///
+    /// # Arguments
+    ///
+    /// * `ack` -   Sequence number of the packet to be added to the acknowledgment
+    ///             list
     pub fn insert(&mut self, ack: u32) {
         if ack < self.ack_begin {
             panic!("ack too old");
@@ -113,6 +188,8 @@ impl AcknowledgmentList {
         self.list.insert(n, true);
     }
 
+    /// Get an `Acknowledgment` structure out of this `AcknowledgmentList`
+    /// * Used to add the acknowledgment to the next outgoing packet
     pub fn get(&self) -> Acknowledgment {
         let mut miss: Vec<u8> = Vec::new();
 
@@ -132,6 +209,9 @@ impl AcknowledgmentList {
         }
     }
 
+    /// Check if the `AcknowledgmentList` is complete. The list is complete when
+    /// there are not missing packets between `ack_begin` to `ack_begin + ack_end`.
+    /// Thus, all packets within that window have been acknowledged
     pub fn is_complete(&self) -> bool {
         self.get().miss_count == 0
     }
