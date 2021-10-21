@@ -14,6 +14,12 @@ pub struct Packet {
 }
 
 impl Packet {
+    /// Create a new Packet
+    ///
+    /// # Arguments
+    ///
+    /// * `id`    -   A u32 representing the id of the packet
+    /// * `sequence` - A u32 representing the sequence number of the packet
     pub fn new(id: u32, sequence: u32) -> Packet {
         Packet {
             id,
@@ -28,16 +34,29 @@ impl Packet {
             payload: Vec::new(),
         }
     }
-
+    /// Add ack struct into the packet
+    ///
+    /// # Arguments
+    ///
+    /// * `ack`    -   A Acknowledgment struct
     pub fn add_ack(&mut self, ack: Acknowledgment) {
         self.ack = ack;
     }
-
+    ///Append payload Vec<u8> to the packet
+    /// also assigns the length of the packet
+    ///
+    /// # Arguments
+    ///
+    /// * `payload`    -   Vec<u8> representing the payload of the packet
     pub fn append_payload(&mut self, payload: Vec<u8>) {
         self.payload.extend(payload);
         self.length = self.payload.len() as u16;
     }
-
+    // Compile the data in the packet into packet struct
+    //
+    // # Arguments
+    //
+    // * 'self' - The Packet struct
     pub fn compile(&self) -> Vec<u8> {
         // Vector to store final compiled packet structure
         let mut packet_vector = Vec::<u8>::new();
@@ -75,6 +94,8 @@ impl Packet {
 
 impl From<Vec<u8>> for Packet {
     // Create a packet structure from the received raw bytes
+    // # Arguments
+    // *bytes - A vector of u8 representing the raw bytes of the packet
     fn from(bytes: Vec<u8>) -> Packet {
         let mut packet_default = Packet {
             id: 0,
