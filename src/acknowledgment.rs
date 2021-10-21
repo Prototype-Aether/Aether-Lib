@@ -35,7 +35,7 @@ pub struct AcknowledgmentCheck {
 }
 
 impl AcknowledgmentCheck {
-    /// Create a new instance of `AcknowledgmentCheck` list
+    /// Create a new instance of [`AcknowledgmentCheck`] list
     ///
     /// # Arguments
     ///
@@ -57,12 +57,12 @@ impl AcknowledgmentCheck {
         }
     }
 
-    /// Add acknowledgment to the list based on the `Acknowledgment` recevied
+    /// Add acknowledgment to the list based on the [`Acknowledgment`] recevied
     ///
     /// # Arguments
     ///
-    /// * `ack` -   The acknowledgment which is instance of `Acknowledgment`.
-    ///             This will be obtained from the `Packet` received.
+    /// * `ack` -   The acknowledgment which is instance of [`Acknowledgment`].
+    ///             This will be obtained from the [`Packet`][crate::packet::Packet] received.
     pub fn acknowledge(&mut self, ack: Acknowledgment) {
         let mut missing: HashMap<u8, bool> = HashMap::new();
 
@@ -129,7 +129,7 @@ pub struct AcknowledgmentList {
 }
 
 impl AcknowledgmentList {
-    /// Creates a new instance of `AcknowledgmentList`
+    /// Creates a new instance of [`AcknowledgmentList`]
     ///
     /// # Arguments
     ///
@@ -188,7 +188,7 @@ impl AcknowledgmentList {
         self.list.insert(n, true);
     }
 
-    /// Get an `Acknowledgment` structure out of this `AcknowledgmentList`
+    /// Get an [`Acknowledgment`] structure out of this [`AcknowledgmentList`]
     /// * Used to add the acknowledgment to the next outgoing packet
     pub fn get(&self) -> Acknowledgment {
         let mut miss: Vec<u8> = Vec::new();
@@ -209,7 +209,7 @@ impl AcknowledgmentList {
         }
     }
 
-    /// Check if the `AcknowledgmentList` is complete. The list is complete when
+    /// Check if the [`AcknowledgmentList`] is complete. The list is complete when
     /// there are not missing packets between `ack_begin` to `ack_begin + ack_end`.
     /// Thus, all packets within that window have been acknowledged
     pub fn is_complete(&self) -> bool {
