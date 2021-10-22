@@ -6,7 +6,7 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
-name = "network_module"
+name = "aether_lib"
 path = "src/lib.rs"
 
 [dependencies]
