@@ -152,15 +152,15 @@ impl AcknowledgmentList {
     /// * `ack` -   The sequence number of the packet to check
     pub fn check(&self, ack: &u32) -> bool {
         if *ack == self.ack_begin {
-            return true;
+            true
         } else if self.ack_begin <= *ack && *ack <= (self.ack_begin + self.ack_end as u32) {
             let n = (*ack - self.ack_begin) as u8;
-            return match self.list.get(&n) {
+            match self.list.get(&n) {
                 None => false,
                 Some(v) => *v,
-            };
+            }
         } else {
-            return false;
+            false
         }
     }
 
