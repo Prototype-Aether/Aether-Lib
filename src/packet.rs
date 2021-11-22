@@ -143,6 +143,15 @@ impl From<Vec<u8>> for Packet {
     }
 }
 
+pub struct TrackerPacket {
+    username: String,
+    id_num: u32,
+    req: bool,
+    packet_type: u8,
+    port: u16,
+    ip: [u8; 4],
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{acknowledgment::AcknowledgmentList, packet};
