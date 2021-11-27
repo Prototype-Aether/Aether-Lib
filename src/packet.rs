@@ -70,7 +70,6 @@ impl Packet {
     /// * `payload`    -   Vec<u8> representing the payload of the packet
     pub fn append_payload(&mut self, payload: Vec<u8>) {
         self.payload.extend(payload);
-        self.length = self.payload.len() as u16;
     }
     /// Compile the data in the packet into packet struct
     ///
@@ -101,10 +100,6 @@ impl Packet {
 
         let slice_miss = self.ack.miss.clone();
         packet_vector.extend(slice_miss);
-
-        // Packet Length converting u16 to u8(vector)
-        let slice_length = compile_u16(self.length);
-        packet_vector.extend(slice_length);
 
         let slice_payload = self.payload.clone();
         packet_vector.extend(slice_payload);
