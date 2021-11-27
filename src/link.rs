@@ -10,6 +10,8 @@ use std::time::Duration;
 use crate::acknowledgment::{AcknowledgmentCheck, AcknowledgmentList};
 use crate::packet::Packet;
 
+const WINDOW_SIZE: u8 = 20;
+
 pub struct Link {
     ack_list: Arc<Mutex<AcknowledgmentList>>,
     ack_check: Arc<Mutex<AcknowledgmentCheck>>,
@@ -29,6 +31,9 @@ struct SendThread {
     peer_addr: SocketAddr,
     primary_queue: Arc<Mutex<VecDeque<Packet>>>,
     stop_flag: Arc<Mutex<bool>>,
+
+    ack_list: Arc<Mutex<AcknowledgmentList>>,
+    ack_check: Arc<Mutex<AcknowledgmentCheck>>,
 }
 
 struct ReceiveThread {
@@ -36,11 +41,17 @@ struct ReceiveThread {
     peer_addr: SocketAddr,
     output_queue: Arc<Mutex<VecDeque<Packet>>>,
     stop_flag: Arc<Mutex<bool>>,
+
+    ack_list: Arc<Mutex<AcknowledgmentList>>,
+    ack_check: Arc<Mutex<AcknowledgmentCheck>>,
 }
 
 impl Link {
     pub fn new(socket: UdpSocket, peer_addr: SocketAddr, send_seq: u32, recv_seq: u32) -> Link {
         let socket = Arc::new(socket);
+        socket
+            .set_read_timeout(Some(Duration::from_secs(1)))
+            .expect("Unable to set timeout");
 
         let primary_queue = Arc::new(Mutex::new(VecDeque::new()));
         let output_queue = Arc::new(Mutex::new(VecDeque::new()));
@@ -62,11 +73,13 @@ impl Link {
 
     pub fn start(&mut self) {
         // Create data structure for the send thread
-        let send_thread_data = SendThread::new(
+        let mut send_thread_data = SendThread::new(
             self.socket.clone(),
             self.peer_addr.clone(),
             self.primary_queue.clone(),
             self.stop_flag.clone(),
+            self.ack_check.clone(),
+            self.ack_list.clone(),
         );
 
         // Start the send thread
@@ -80,6 +93,8 @@ impl Link {
             self.peer_addr.clone(),
             self.output_queue.clone(),
             self.stop_flag.clone(),
+            self.ack_check.clone(),
+            self.ack_list.clone(),
         );
 
         // Start the receive thread
@@ -160,6 +175,8 @@ impl SendThread {
         peer_addr: SocketAddr,
         primary_queue: Arc<Mutex<VecDeque<Packet>>>,
         stop_flag: Arc<Mutex<bool>>,
+        ack_check: Arc<Mutex<AcknowledgmentCheck>>,
+        ack_list: Arc<Mutex<AcknowledgmentList>>,
     ) -> SendThread {
         SendThread {
             batch_queue: VecDeque::new(),
@@ -167,10 +184,12 @@ impl SendThread {
             peer_addr,
             primary_queue,
             stop_flag,
+            ack_check,
+            ack_list,
         }
     }
 
-    pub fn start(&self) {
+    pub fn start(&mut self) {
         println!("Starting send thread...");
         loop {
             // If stop flag is set stop the thread
@@ -181,25 +200,50 @@ impl SendThread {
 
             drop(flag_lock);
 
-            // Lock primary queue and dequeue the packet
-            let mut queue = self.primary_queue.lock().expect("Error locking queue");
-            match (*queue).pop_front() {
-                Some(packet) => self.send(packet),
-                None => (),
+            match self.batch_queue.pop_front() {
+                Some(mut packet) => {
+                    if !self.check_ack(&packet) {
+                        self.add_ack(&mut packet);
+                        self.send(packet);
+                    }
+                }
+                None => self.fetch_window(),
             }
-
-            // Unlock queue
-            drop(queue);
         }
 
         println!("Stopping send thread...");
     }
 
-    pub fn send(&self, packet: Packet) {
+    pub fn fetch_window(&mut self) {
+        // Lock primary queue and dequeue the packet
+        let mut queue = self.primary_queue.lock().expect("Error locking queue");
+
+        for _ in 0..WINDOW_SIZE {
+            match (*queue).pop_front() {
+                Some(packet) => self.batch_queue.push_back(packet),
+                None => break,
+            }
+        }
+    }
+
+    pub fn check_ack(&self, packet: &Packet) -> bool {
+        let ack_lock = self.ack_check.lock().expect("Unable to lock ack list");
+        (*ack_lock).check(&packet.sequence)
+    }
+
+    pub fn add_ack(&self, packet: &mut Packet) {
+        let ack_lock = self.ack_list.lock().expect("Unable to lock ack list");
+        let ack = (*ack_lock).get();
+        packet.add_ack(ack);
+    }
+
+    pub fn send(&mut self, packet: Packet) {
         let data = packet.compile();
         self.socket
             .send_to(&data, self.peer_addr)
             .expect("Unable to send data");
+
+        self.batch_queue.push_back(packet);
     }
 }
 
@@ -209,12 +253,16 @@ impl ReceiveThread {
         peer_addr: SocketAddr,
         output_queue: Arc<Mutex<VecDeque<Packet>>>,
         stop_flag: Arc<Mutex<bool>>,
+        ack_check: Arc<Mutex<AcknowledgmentCheck>>,
+        ack_list: Arc<Mutex<AcknowledgmentList>>,
     ) -> ReceiveThread {
         ReceiveThread {
             socket,
             peer_addr,
             output_queue,
             stop_flag,
+            ack_check,
+            ack_list,
         }
     }
 
@@ -231,10 +279,6 @@ impl ReceiveThread {
             // Unlock flag
             drop(flag_lock);
 
-            self.socket
-                .set_read_timeout(Some(Duration::from_secs(1)))
-                .expect("Unable to set timeout");
-
             let size = match self.socket.recv(&mut buf) {
                 Ok(result) => result,
                 _ => 0,
@@ -242,13 +286,25 @@ impl ReceiveThread {
 
             if size > 0 {
                 let packet = Packet::from(buf[..size].to_vec());
+                self.send_ack(&packet);
+                self.recv_ack(&packet);
                 self.output(packet);
             }
         }
         println!("Stopping receive thread...");
     }
 
-    pub fn output(&self, packet: Packet) {
+    fn send_ack(&self, packet: &Packet) {
+        let mut ack_lock = self.ack_list.lock().expect("Unable to lack ack list");
+        (*ack_lock).insert(packet.sequence);
+    }
+
+    fn recv_ack(&self, packet: &Packet) {
+        let mut ack_lock = self.ack_check.lock().expect("unable to lock ack check");
+        (*ack_lock).acknowledge(packet.ack.clone());
+    }
+
+    fn output(&self, packet: Packet) {
         let mut output_lock = self.output_queue.lock().expect("Cannot lock output queue");
         (*output_lock).push_back(packet);
     }

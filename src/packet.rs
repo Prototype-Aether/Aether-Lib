@@ -61,6 +61,7 @@ impl Packet {
     /// * `ack`    -   A Acknowledgment struct
     pub fn add_ack(&mut self, ack: Acknowledgment) {
         self.ack = ack;
+        self.flags.ack = true;
     }
     ///Append payload Vec<u8> to the packet
     /// also assigns the length of the packet
@@ -152,7 +153,7 @@ impl From<Vec<u8>> for Packet {
         // packet_default.id = u32::from_be_bytes(id_array);
 
         // Packet Sequence converting u8 to u32(vector)
-        let sequence_array = bytes[1..4].try_into().unwrap();
+        let sequence_array = bytes[0..4].try_into().unwrap();
         packet_default.sequence = u32::from_be_bytes(sequence_array);
 
         // Packet Ack Begin converting u8 to u32(vector)
@@ -204,7 +205,7 @@ mod tests {
 
     #[test]
     fn compile_test() {
-        let mut pack = packet::Packet::new(2112352, 32850943);
+        let mut pack = packet::Packet::new(0, 32850943);
         let mut ack_list = AcknowledgmentList::new(329965);
         ack_list.insert(329966);
         ack_list.insert(329967);
@@ -218,10 +219,16 @@ mod tests {
         let pack_out = packet::Packet::from(compiled);
 
         assert_eq!(pack.sequence, pack_out.sequence);
+
+        assert_eq!(pack.flags.p_type, pack_out.flags.p_type);
+        assert_eq!(pack.flags.ack, pack_out.flags.ack);
+        assert_eq!(pack.flags.enc, pack_out.flags.enc);
+
         assert_eq!(pack.ack.ack_begin, pack_out.ack.ack_begin);
         assert_eq!(pack.ack.ack_end, pack_out.ack.ack_end);
         assert_eq!(pack.ack.miss_count, pack_out.ack.miss_count);
         assert_eq!(pack.ack.miss, pack_out.ack.miss);
+
         assert_eq!(pack.payload, pack_out.payload);
     }
 }

@@ -20,6 +20,17 @@ pub struct Acknowledgment {
     pub miss: Vec<u8>,
 }
 
+impl Clone for Acknowledgment {
+    fn clone(&self) -> Acknowledgment {
+        Acknowledgment {
+            ack_begin: self.ack_begin,
+            ack_end: self.ack_end,
+            miss_count: self.miss_count,
+            miss: self.miss.clone(),
+        }
+    }
+}
+
 /// A checklist to store all acknowledgments received.
 /// * Used by sending module to test if a packet has already been acknowledged
 ///   before sending it.
