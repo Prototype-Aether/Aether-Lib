@@ -10,7 +10,19 @@ pub struct PacketFlags {
     pub ack: bool,
     pub enc: bool,
 }
-
+impl PacketFlags {
+    pub fn get_byte(&self) -> u8 {
+        let mut byte: u8 = 0;
+        byte |= self.p_type << 4;
+        if self.ack {
+            byte |= 1 << 3;
+        }
+        if self.enc {
+            byte |= 1 << 2;
+        }
+        byte
+    }
+}
 pub struct Packet {
     pub flags: PacketFlags,
     pub sequence: u32,
@@ -25,9 +37,13 @@ impl Packet {
     ///
     /// * `id`    -   A u32 representing the id of the packet
     /// * `sequence` - A u32 representing the sequence number of the packet
-    pub fn new(id: u32, sequence: u32) -> Packet {
+    pub fn new(flags: PacketFlags, sequence: u32) -> Packet {
         Packet {
-            id,
+            flags: PacketFlags {
+                p_type: 0,
+                ack: false,
+                enc: false,
+            },
             sequence,
             ack: Acknowledgment {
                 ack_begin: 0,
@@ -35,7 +51,6 @@ impl Packet {
                 miss_count: 0,
                 miss: Vec::new(),
             },
-            length: 0,
             payload: Vec::new(),
         }
     }
@@ -57,18 +72,18 @@ impl Packet {
         self.payload.extend(payload);
         self.length = self.payload.len() as u16;
     }
-    // Compile the data in the packet into packet struct
-    //
-    // # Arguments
-    //
-    // * 'self' - The Packet struct
+    /// Compile the data in the packet into packet struct
+    ///
+    /// # Arguments
+    ///
+    /// * 'self' - The Packet struct
     pub fn compile(&self) -> Vec<u8> {
         // Vector to store final compiled packet structure
         let mut packet_vector = Vec::<u8>::new();
 
         // Packet ID converting u32 to u8(vector)
-        let slice_id = compile_u32(self.id);
-        packet_vector.extend(slice_id);
+        // let slice_id = compile_u32(self.id);
+        // packet_vector.extend(slice_id);
 
         // Packet Sequence converting u32 to u8(vector)
         let slice_sequence = compile_u32(self.sequence);
@@ -79,6 +94,8 @@ impl Packet {
         packet_vector.extend(slice_ack_begin);
 
         packet_vector.push(self.ack.ack_end);
+
+        packet_vector.push(self.flags.get_byte());
 
         packet_vector.push(self.ack.miss_count);
 
@@ -96,6 +113,23 @@ impl Packet {
         packet_vector
     }
 }
+impl From<u8> for PacketFlags {
+    fn from(byte: u8) -> Self {
+        let mut flags = PacketFlags {
+            p_type: 0,
+            ack: false,
+            enc: false,
+        };
+        flags.p_type = (byte >> 4) & 0x0F;
+        if (byte >> 3) & 0x01 == 1 {
+            flags.ack = true;
+        }
+        if (byte >> 2) & 0x01 == 1 {
+            flags.enc = true;
+        }
+        flags
+    }
+}
 
 impl From<Vec<u8>> for Packet {
     // Create a packet structure from the received raw bytes
@@ -103,7 +137,11 @@ impl From<Vec<u8>> for Packet {
     // *bytes - A vector of u8 representing the raw bytes of the packet
     fn from(bytes: Vec<u8>) -> Packet {
         let mut packet_default = Packet {
-            id: 0,
+            flags: PacketFlags {
+                p_type: 0,
+                ack: false,
+                enc: false,
+            },
             sequence: 0,
             ack: Acknowledgment {
                 ack_begin: 0,
@@ -111,38 +149,39 @@ impl From<Vec<u8>> for Packet {
                 miss_count: 0,
                 miss: Vec::new(),
             },
-            length: 0,
             payload: Vec::new(),
         };
 
         // Packet ID converting u8 to u32(vector)
-        let id_array = bytes[0..4].try_into().unwrap();
-        packet_default.id = u32::from_be_bytes(id_array);
+        // let id_array = bytes[0..4].try_into().unwrap();
+        // packet_default.id = u32::from_be_bytes(id_array);
 
         // Packet Sequence converting u8 to u32(vector)
-        let sequence_array = bytes[4..8].try_into().unwrap();
+        let sequence_array = bytes[1..4].try_into().unwrap();
         packet_default.sequence = u32::from_be_bytes(sequence_array);
 
         // Packet Ack Begin converting u8 to u32(vector)
-        let ack_begin_array = bytes[8..12].try_into().unwrap();
+        let ack_begin_array = bytes[4..8].try_into().unwrap();
         packet_default.ack.ack_begin = u32::from_be_bytes(ack_begin_array);
 
-        packet_default.ack.ack_end = bytes[12];
+        packet_default.ack.ack_end = bytes[8];
 
-        packet_default.ack.miss_count = bytes[13];
+        packet_default.flags = PacketFlags::from(bytes[9]);
 
-        packet_default.ack.miss = bytes[14..14 + packet_default.ack.miss_count as usize].to_vec();
+        packet_default.ack.miss_count = bytes[10];
 
+        packet_default.ack.miss = bytes[11..11 + packet_default.ack.miss_count as usize].to_vec();
+
+        let payload_start = 11 + packet_default.ack.miss_count as usize;
+        let payload_length = bytes.len() - payload_start;
         // Packet Length converting u8 to u16(vector)
-        let length_array = bytes[14 + packet_default.ack.miss_count as usize
-            ..16 + packet_default.ack.miss_count as usize]
-            .try_into()
-            .unwrap();
-        packet_default.length = u16::from_be_bytes(length_array);
+        // let length_array = bytes[11 + packet_default.ack.miss_count as usize
+        //     ..13 + packet_default.ack.miss_count as usize]
+        //     .try_into()
+        //     .unwrap();
+        // packet_default.length = u16::from_be_bytes(length_array);
 
-        packet_default.payload = bytes[16 + packet_default.ack.miss_count as usize
-            ..16 + packet_default.ack.miss_count as usize + packet_default.length as usize]
-            .to_vec();
+        packet_default.payload = bytes[payload_start..payload_start + payload_length].to_vec();
 
         packet_default
     }
@@ -183,13 +222,11 @@ mod tests {
 
         let pack_out = packet::Packet::from(compiled);
 
-        assert_eq!(pack.id, pack_out.id);
         assert_eq!(pack.sequence, pack_out.sequence);
         assert_eq!(pack.ack.ack_begin, pack_out.ack.ack_begin);
         assert_eq!(pack.ack.ack_end, pack_out.ack.ack_end);
         assert_eq!(pack.ack.miss_count, pack_out.ack.miss_count);
         assert_eq!(pack.ack.miss, pack_out.ack.miss);
-        assert_eq!(pack.length, pack_out.length);
         assert_eq!(pack.payload, pack_out.payload);
     }
 }
