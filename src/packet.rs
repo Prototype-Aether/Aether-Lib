@@ -5,11 +5,16 @@ use std::convert::From;
 use std::convert::TryInto;
 use std::vec::Vec;
 
+pub struct PacketFlags {
+    pub p_type: u8,
+    pub ack: bool,
+    pub enc: bool,
+}
+
 pub struct Packet {
-    pub id: u32,
+    pub flags: PacketFlags,
     pub sequence: u32,
     pub ack: Acknowledgment,
-    pub length: u16,
     pub payload: Vec<u8>,
 }
 
