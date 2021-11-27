@@ -37,10 +37,10 @@ impl Packet {
     ///
     /// * `id`    -   A u32 representing the id of the packet
     /// * `sequence` - A u32 representing the sequence number of the packet
-    pub fn new(flags: PacketFlags, sequence: u32) -> Packet {
+    pub fn new(p_type: u8, sequence: u32) -> Packet {
         Packet {
             flags: PacketFlags {
-                p_type: 0,
+                p_type: p_type,
                 ack: false,
                 enc: false,
             },
