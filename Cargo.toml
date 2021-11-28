@@ -11,3 +11,4 @@ path = "src/lib.rs"
 
 [dependencies]
 crossbeam = "0.8.1"
+rand = "0.8"

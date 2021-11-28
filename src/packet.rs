@@ -38,6 +38,7 @@ impl PartialEq for PType {
     }
 }
 
+#[derive(Debug)]
 pub struct PacketFlags {
     pub p_type: PType,
     pub ack: bool,
@@ -58,6 +59,7 @@ impl PacketFlags {
     }
 }
 
+#[derive(Debug)]
 pub struct Packet {
     pub flags: PacketFlags,
     pub sequence: u32,

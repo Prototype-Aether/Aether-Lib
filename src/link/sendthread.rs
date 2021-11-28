@@ -104,24 +104,34 @@ impl SendThread {
 
     pub fn check_ack(&self, packet: &Packet) -> bool {
         let ack_lock = self.ack_check.lock().expect("Unable to lock ack list");
+        //println!("CHeckin: {:?}", (*ack_lock));
         (*ack_lock).check(&packet.sequence)
     }
 
     pub fn add_ack(&self, packet: &mut Packet) {
         let ack_lock = self.ack_list.lock().expect("Unable to lock ack list");
         let ack = (*ack_lock).get();
+        //println!("Adding: {:?}", ack);
         packet.add_ack(ack);
     }
 
     pub fn send(&mut self, packet: Packet) {
         let data = packet.compile();
         //let message = String::from_utf8(packet.payload.clone()).unwrap();
-        self.socket
+        if packet.flags.p_type == PType::Data {
+            //println!("{}", packet.sequence);
+        }
+        let result = self
+            .socket
             .send_to(&data, self.peer_addr)
             .expect("Unable to send data");
 
-        if needs_retry(&packet.flags.p_type) {
-            self.batch_queue.push_back(packet);
+        if result <= 0 {
+            panic!("Cannot sent");
         }
+
+        //if needs_retry(&packet.flags.p_type) {
+        self.batch_queue.push_back(packet);
+        //}
     }
 }

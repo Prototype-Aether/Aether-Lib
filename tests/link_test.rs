@@ -5,6 +5,7 @@ mod tests {
 
     use aether_lib::link::Link;
     #[test]
+    #[ignore]
     pub fn link_test() {
         let peer_addr1 = SocketAddr::from_str("127.0.0.1:8181").unwrap();
         let peer_addr2 = SocketAddr::from_str("127.0.0.1:8282").unwrap();
@@ -12,8 +13,8 @@ mod tests {
         let socket1 = UdpSocket::bind(("0.0.0.0", 8181)).unwrap();
         let socket2 = UdpSocket::bind(("0.0.0.0", 8282)).unwrap();
 
-        let mut link1 = Link::new(socket1, peer_addr2, 30, 10);
-        let mut link2 = Link::new(socket2, peer_addr1, 10, 30);
+        let mut link1 = Link::new(socket1, peer_addr2, 10, 10);
+        let mut link2 = Link::new(socket2, peer_addr1, 10, 10);
 
         link1.start();
         link2.start();
@@ -46,7 +47,7 @@ mod tests {
         for i in 0..recv.len() {
             let a = String::from_utf8(recv[i].clone()).unwrap();
             let b = String::from_utf8(data[i].clone()).unwrap();
-            //println!("{} == {}", a, b);
+            println!("{} == {}", a, b);
             assert_eq!(recv[i], data[i]);
         }
 

@@ -32,12 +32,13 @@ impl Clone for Acknowledgment {
     }
 }
 
-pub const MAX_WINDOW: u8 = 127;
+pub const MAX_WINDOW: u8 = 3;
 
 /// A checklist to store all acknowledgments received.
 /// * Used by sending module to test if a packet has already been acknowledged
 ///   before sending it.
 /// * Used by receiving module to add acknowledgments that have been received
+#[derive(Debug)]
 pub struct AcknowledgmentCheck {
     /// The sequence number of begining of the list. All sequence numbers below
     /// this have been acknowledged already.
@@ -192,15 +193,8 @@ impl AcknowledgmentList {
     ///             list
     pub fn insert(&mut self, ack: u32) {
         if ack > (MAX_WINDOW as u32 + self.ack_begin) {
-            panic!(
-                "ack too large {}\t Diff: {}\n{:?}",
-                ack,
-                ack - self.ack_begin,
-                self.get()
-            );
-        }
-
-        if ack > self.ack_begin {
+            panic!("ack too large {}\t Diff: {}", ack, ack - self.ack_begin);
+        } else if ack > self.ack_begin {
             let n = (ack - self.ack_begin) as u8;
 
             if n > self.ack_end {

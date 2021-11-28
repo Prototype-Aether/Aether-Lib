@@ -7,6 +7,8 @@ use std::sync::Mutex;
 use crate::acknowledgment::{AcknowledgmentCheck, AcknowledgmentList};
 use crate::packet::Packet;
 
+use rand::Rng;
+
 pub struct ReceiveThread {
     socket: Arc<UdpSocket>,
     peer_addr: SocketAddr,
@@ -53,6 +55,12 @@ impl ReceiveThread {
             // Unlock flag
             drop(flag_lock);
 
+            /* Simulate packet loss
+            if rand::thread_rng().gen_range(0..100) < 50 {
+                continue;
+            }
+            */
+
             let size = match self.socket.recv(&mut buf) {
                 Ok(result) => result,
                 _ => 0,
@@ -60,9 +68,11 @@ impl ReceiveThread {
 
             if size > 0 {
                 let packet = Packet::from(buf[..size].to_vec());
-                if !self.check_ack(&packet) {
-                    self.send_ack(&packet);
-                    self.recv_ack(&packet);
+                //println!("Result: {:?}", packet);
+                let exists = self.check_ack(&packet);
+                self.recv_ack(&packet);
+                self.send_ack(&packet);
+                if !exists {
                     self.output(packet);
                 }
             }
@@ -82,6 +92,7 @@ impl ReceiveThread {
 
     fn recv_ack(&self, packet: &Packet) {
         let mut ack_lock = self.ack_check.lock().expect("unable to lock ack check");
+        //println!("Received: {:?}", packet.ack);
         (*ack_lock).acknowledge(packet.ack.clone());
     }
 
