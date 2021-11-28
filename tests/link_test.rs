@@ -12,8 +12,8 @@ mod tests {
         let socket1 = UdpSocket::bind(("0.0.0.0", 8181)).unwrap();
         let socket2 = UdpSocket::bind(("0.0.0.0", 8282)).unwrap();
 
-        let mut link1 = Link::new(socket1, peer_addr2, 338921, 798434);
-        let mut link2 = Link::new(socket2, peer_addr1, 798434, 338921);
+        let mut link1 = Link::new(socket1, peer_addr2, 30, 10);
+        let mut link2 = Link::new(socket2, peer_addr1, 10, 30);
 
         link1.start();
         link2.start();
@@ -29,18 +29,29 @@ mod tests {
         }
 
         let mut count = 0;
+        let mut recv: Vec<Vec<u8>> = Vec::new();
         loop {
             match link2.recv() {
                 Ok(recved_data) => {
-                    //println!("{}", String::from_utf8(recved_data.clone()).unwrap());
                     count += 1;
-                    assert!(data.contains(&recved_data));
+                    recv.push(recved_data);
                     if count >= data.len() {
                         break;
                     }
                 }
                 _ => (),
             }
+        }
+
+        for v in &recv {
+            println!("{}", String::from_utf8(v.clone()).unwrap());
+        }
+
+        for i in 0..recv.len() {
+            let a = String::from_utf8(recv[i].clone()).unwrap();
+            let b = String::from_utf8(data[i].clone()).unwrap();
+            println!("{} == {}", a, b);
+            assert_eq!(recv[i], data[i]);
         }
 
         println!("Stopping");

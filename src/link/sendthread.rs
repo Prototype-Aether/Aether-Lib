@@ -17,6 +17,8 @@ pub struct SendThread {
 
     ack_list: Arc<Mutex<AcknowledgmentList>>,
     ack_check: Arc<Mutex<AcknowledgmentCheck>>,
+
+    send_seq: Arc<Mutex<u32>>,
 }
 
 impl SendThread {
@@ -27,6 +29,7 @@ impl SendThread {
         stop_flag: Arc<Mutex<bool>>,
         ack_check: Arc<Mutex<AcknowledgmentCheck>>,
         ack_list: Arc<Mutex<AcknowledgmentList>>,
+        send_seq: Arc<Mutex<u32>>,
     ) -> SendThread {
         SendThread {
             batch_queue: VecDeque::new(),
@@ -36,6 +39,7 @@ impl SendThread {
             stop_flag,
             ack_check,
             ack_list,
+            send_seq,
         }
     }
 
@@ -57,11 +61,31 @@ impl SendThread {
                         self.send(packet);
                     }
                 }
-                None => self.fetch_window(),
+                None => {
+                    self.fetch_window();
+                    // If still empty
+                    if self.batch_queue.len() <= 0 {
+                        // Send a ack only packet (with empty payload)
+                        self.batch_queue.push_back(self.ack_packet());
+                    }
+                }
             }
         }
 
         println!("Stopping send thread...");
+    }
+
+    pub fn ack_packet(&self) -> Packet {
+        println!("Sending ack only");
+        // Lock seq number
+        let mut seq_lock = self.send_seq.lock().expect("Unable to lock seq");
+        // Increase sequence number
+        (*seq_lock) += 1;
+
+        let seq: u32 = *seq_lock;
+
+        // Create a new packet to be sent
+        Packet::new(10, seq)
     }
 
     pub fn fetch_window(&mut self) {
@@ -89,6 +113,7 @@ impl SendThread {
 
     pub fn send(&mut self, packet: Packet) {
         let data = packet.compile();
+        let message = String::from_utf8(packet.payload.clone()).unwrap();
         self.socket
             .send_to(&data, self.peer_addr)
             .expect("Unable to send data");

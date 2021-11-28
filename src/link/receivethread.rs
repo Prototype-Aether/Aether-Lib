@@ -75,7 +75,9 @@ impl ReceiveThread {
     }
 
     fn output(&self, packet: Packet) {
-        let mut output_lock = self.output_queue.lock().expect("Cannot lock output queue");
-        (*output_lock).push_back(packet);
+        if packet.payload.len() > 0 {
+            let mut output_lock = self.output_queue.lock().expect("Cannot lock output queue");
+            (*output_lock).push_back(packet);
+        }
     }
 }

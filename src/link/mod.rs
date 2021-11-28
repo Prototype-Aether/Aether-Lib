@@ -25,8 +25,8 @@ pub struct Link {
     primary_queue: Arc<Mutex<VecDeque<Packet>>>,
     output_queue: Arc<Mutex<VecDeque<Packet>>>,
     thread_handles: Vec<JoinHandle<()>>,
-    send_seq: u32,
-    recv_seq: u32,
+    send_seq: Arc<Mutex<u32>>,
+    recv_seq: Arc<Mutex<u32>>,
     stop_flag: Arc<Mutex<bool>>,
 }
 
@@ -48,8 +48,8 @@ impl Link {
             socket,
             primary_queue,
             output_queue,
-            send_seq,
-            recv_seq,
+            send_seq: Arc::new(Mutex::new(send_seq)),
+            recv_seq: Arc::new(Mutex::new(recv_seq)),
             thread_handles: Vec::new(),
             stop_flag,
         }
@@ -64,6 +64,7 @@ impl Link {
             self.stop_flag.clone(),
             self.ack_check.clone(),
             self.ack_list.clone(),
+            self.send_seq.clone(),
         );
 
         // Start the send thread
@@ -110,11 +111,18 @@ impl Link {
     }
 
     pub fn send(&mut self, buf: Vec<u8>) {
+        // Lock seq number
+        let mut seq_lock = self.send_seq.lock().expect("Unable to lock seq");
         // Increase sequence number
-        self.send_seq += 1;
+        (*seq_lock) += 1;
+
+        let seq: u32 = *seq_lock;
+
+        // Unlock seq
+        drop(seq_lock);
 
         // Create a new packet to be sent
-        let mut packet = Packet::new(10, self.send_seq);
+        let mut packet = Packet::new(10, seq);
         packet.append_payload(buf);
 
         // Lock the primary queue

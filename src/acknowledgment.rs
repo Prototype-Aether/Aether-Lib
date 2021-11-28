@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 /// Structure to reperesent the acknowledgment format
+#[derive(Debug)]
 pub struct Acknowledgment {
     /// The sequence number of the packet from which the acknowledgment begins
     pub ack_begin: u32,
