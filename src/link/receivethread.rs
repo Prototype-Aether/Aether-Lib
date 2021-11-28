@@ -15,6 +15,8 @@ pub struct ReceiveThread {
 
     ack_list: Arc<Mutex<AcknowledgmentList>>,
     ack_check: Arc<Mutex<AcknowledgmentCheck>>,
+
+    recv_seq: Arc<Mutex<u32>>,
 }
 
 impl ReceiveThread {
@@ -25,6 +27,7 @@ impl ReceiveThread {
         stop_flag: Arc<Mutex<bool>>,
         ack_check: Arc<Mutex<AcknowledgmentCheck>>,
         ack_list: Arc<Mutex<AcknowledgmentList>>,
+        recv_seq: Arc<Mutex<u32>>,
     ) -> ReceiveThread {
         ReceiveThread {
             socket,
@@ -33,6 +36,7 @@ impl ReceiveThread {
             stop_flag,
             ack_check,
             ack_list,
+            recv_seq,
         }
     }
 
@@ -56,12 +60,19 @@ impl ReceiveThread {
 
             if size > 0 {
                 let packet = Packet::from(buf[..size].to_vec());
-                self.send_ack(&packet);
-                self.recv_ack(&packet);
-                self.output(packet);
+                if !self.check_ack(&packet) {
+                    self.send_ack(&packet);
+                    self.recv_ack(&packet);
+                    self.output(packet);
+                }
             }
         }
         println!("Stopping receive thread...");
+    }
+
+    fn check_ack(&self, packet: &Packet) -> bool {
+        let ack_lock = self.ack_list.lock().expect("Unable to lack ack list");
+        (*ack_lock).check(&packet.sequence)
     }
 
     fn send_ack(&self, packet: &Packet) {

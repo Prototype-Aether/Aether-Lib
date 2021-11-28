@@ -13,9 +13,18 @@ use std::time::Duration;
 use crate::acknowledgment::{AcknowledgmentCheck, AcknowledgmentList};
 use crate::link::receivethread::ReceiveThread;
 use crate::link::sendthread::SendThread;
+use crate::packet::PType;
 use crate::packet::Packet;
 
 pub const WINDOW_SIZE: u8 = 20;
+
+pub fn needs_retry(p_type: &PType) -> bool {
+    match p_type {
+        PType::Data => true,
+        PType::AckOnly => false,
+        _ => false,
+    }
+}
 
 pub struct Link {
     ack_list: Arc<Mutex<AcknowledgmentList>>,
@@ -80,6 +89,7 @@ impl Link {
             self.stop_flag.clone(),
             self.ack_check.clone(),
             self.ack_list.clone(),
+            self.recv_seq.clone(),
         );
 
         // Start the receive thread
@@ -122,7 +132,7 @@ impl Link {
         drop(seq_lock);
 
         // Create a new packet to be sent
-        let mut packet = Packet::new(10, seq);
+        let mut packet = Packet::new(PType::Data, seq);
         packet.append_payload(buf);
 
         // Lock the primary queue

@@ -5,15 +5,49 @@ use std::convert::From;
 use std::convert::TryInto;
 use std::vec::Vec;
 
+#[derive(Debug, Clone)]
+pub enum PType {
+    Data,
+    AckOnly,
+    Extended,
+}
+
+impl Into<u8> for PType {
+    fn into(self) -> u8 {
+        match self {
+            PType::Data => 0,
+            PType::AckOnly => 1,
+            PType::Extended => 15,
+        }
+    }
+}
+
+impl From<u8> for PType {
+    fn from(p_type: u8) -> PType {
+        match Option::from(p_type) {
+            Some(0) => PType::Data,
+            Some(1) => PType::AckOnly,
+            _ => PType::Extended,
+        }
+    }
+}
+
+impl PartialEq for PType {
+    fn eq(&self, other: &Self) -> bool {
+        (self.clone() as u8) == (other.clone() as u8)
+    }
+}
+
 pub struct PacketFlags {
-    pub p_type: u8,
+    pub p_type: PType,
     pub ack: bool,
     pub enc: bool,
 }
+
 impl PacketFlags {
     pub fn get_byte(&self) -> u8 {
         let mut byte: u8 = 0;
-        byte |= self.p_type << 4;
+        byte |= (self.p_type.clone() as u8) << 4;
         if self.ack {
             byte |= 1 << 3;
         }
@@ -23,6 +57,7 @@ impl PacketFlags {
         byte
     }
 }
+
 pub struct Packet {
     pub flags: PacketFlags,
     pub sequence: u32,
@@ -37,10 +72,10 @@ impl Packet {
     ///
     /// * `id`    -   A u32 representing the id of the packet
     /// * `sequence` - A u32 representing the sequence number of the packet
-    pub fn new(p_type: u8, sequence: u32) -> Packet {
+    pub fn new(p_type: PType, sequence: u32) -> Packet {
         Packet {
             flags: PacketFlags {
-                p_type: p_type,
+                p_type,
                 ack: false,
                 enc: false,
             },
@@ -112,11 +147,11 @@ impl Packet {
 impl From<u8> for PacketFlags {
     fn from(byte: u8) -> Self {
         let mut flags = PacketFlags {
-            p_type: 0,
+            p_type: PType::Data,
             ack: false,
             enc: false,
         };
-        flags.p_type = (byte >> 4) & 0x0F;
+        flags.p_type = PType::from((byte >> 4) & 0x0F);
         if (byte >> 3) & 0x01 == 1 {
             flags.ack = true;
         }
@@ -134,7 +169,7 @@ impl From<Vec<u8>> for Packet {
     fn from(bytes: Vec<u8>) -> Packet {
         let mut packet_default = Packet {
             flags: PacketFlags {
-                p_type: 0,
+                p_type: PType::Data,
                 ack: false,
                 enc: false,
             },
@@ -194,18 +229,19 @@ pub struct TrackerPacket {
 
 #[cfg(test)]
 mod tests {
+    use crate::packet::PType;
     use crate::{acknowledgment::AcknowledgmentList, packet};
 
     #[test]
     fn range_test() {
-        let pack = packet::Packet::new(0, 0);
+        let pack = packet::Packet::new(PType::Data, 0);
         assert!(pack.ack.ack_begin <= pack.ack.ack_end.into());
         assert!(pack.ack.miss_count as u32 <= (pack.ack.ack_end as u32 - pack.ack.ack_begin));
     }
 
     #[test]
     fn compile_test() {
-        let mut pack = packet::Packet::new(0, 32850943);
+        let mut pack = packet::Packet::new(PType::Data, 32850943);
         let mut ack_list = AcknowledgmentList::new(329965);
         ack_list.insert(329966);
         ack_list.insert(329967);

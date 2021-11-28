@@ -6,7 +6,10 @@ use std::sync::Mutex;
 
 use crate::acknowledgment::{AcknowledgmentCheck, AcknowledgmentList};
 use crate::link::WINDOW_SIZE;
+use crate::packet::PType;
 use crate::packet::Packet;
+
+use super::needs_retry;
 
 pub struct SendThread {
     batch_queue: VecDeque<Packet>,
@@ -76,7 +79,6 @@ impl SendThread {
     }
 
     pub fn ack_packet(&self) -> Packet {
-        println!("Sending ack only");
         // Lock seq number
         let mut seq_lock = self.send_seq.lock().expect("Unable to lock seq");
         // Increase sequence number
@@ -85,7 +87,7 @@ impl SendThread {
         let seq: u32 = *seq_lock;
 
         // Create a new packet to be sent
-        Packet::new(10, seq)
+        Packet::new(PType::AckOnly, seq)
     }
 
     pub fn fetch_window(&mut self) {
@@ -113,11 +115,13 @@ impl SendThread {
 
     pub fn send(&mut self, packet: Packet) {
         let data = packet.compile();
-        let message = String::from_utf8(packet.payload.clone()).unwrap();
+        //let message = String::from_utf8(packet.payload.clone()).unwrap();
         self.socket
             .send_to(&data, self.peer_addr)
             .expect("Unable to send data");
 
-        self.batch_queue.push_back(packet);
+        if needs_retry(&packet.flags.p_type) {
+            self.batch_queue.push_back(packet);
+        }
     }
 }

@@ -20,7 +20,7 @@ mod tests {
 
         let mut data: Vec<Vec<u8>> = Vec::new();
 
-        for i in 1..100 {
+        for i in 1..100000 {
             data.push(format!("Hello {}", i).as_bytes().to_vec());
         }
 
@@ -43,14 +43,10 @@ mod tests {
             }
         }
 
-        for v in &recv {
-            println!("{}", String::from_utf8(v.clone()).unwrap());
-        }
-
         for i in 0..recv.len() {
             let a = String::from_utf8(recv[i].clone()).unwrap();
             let b = String::from_utf8(data[i].clone()).unwrap();
-            println!("{} == {}", a, b);
+            //println!("{} == {}", a, b);
             assert_eq!(recv[i], data[i]);
         }
 

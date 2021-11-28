@@ -32,6 +32,8 @@ impl Clone for Acknowledgment {
     }
 }
 
+pub const MAX_WINDOW: u8 = 127;
+
 /// A checklist to store all acknowledgments received.
 /// * Used by sending module to test if a packet has already been acknowledged
 ///   before sending it.
@@ -76,6 +78,13 @@ impl AcknowledgmentCheck {
     /// * `ack` -   The acknowledgment which is instance of [`Acknowledgment`].
     ///             This will be obtained from the [`Packet`][crate::packet::Packet] received.
     pub fn acknowledge(&mut self, ack: Acknowledgment) {
+        // acknowledge everythin below ack.ack_begin
+        if self.begin < ack.ack_begin {
+            for i in self.begin..(ack.ack_begin + 1) {
+                self.insert(i);
+            }
+        }
+
         let mut missing: HashMap<u8, bool> = HashMap::new();
 
         for i in ack.miss {
@@ -126,9 +135,9 @@ impl AcknowledgmentCheck {
 /// * Used by receiving module to add acknowledgments for the packets that are received
 /// * Used by sending module to get acknowledgments to be sent with the next packet
 pub struct AcknowledgmentList {
-    /// A `HashMap` to store the sequence numbers of packets (relative to `ack_begin`)
-    /// from `0` to `ack_end` that have been received and need to be acknowledged
-    list: HashMap<u8, bool>,
+    /// A `HashMap` to store the sequence numbers of packets from `ack_begin` to
+    /// `ack_begin + ack_end` that have been received and need to be acknowledged
+    list: HashMap<u32, bool>,
 
     /// The sequence number of the first packet included in this acknowledgment
     ack_begin: u32,
@@ -148,8 +157,8 @@ impl AcknowledgmentList {
     /// * `ack_begin`   -   The `ack_begin` value from which this acknowledgment
     ///                     begins
     pub fn new(ack_begin: u32) -> AcknowledgmentList {
-        let mut list: HashMap<u8, bool> = HashMap::new();
-        list.insert(0, true);
+        let mut list: HashMap<u32, bool> = HashMap::new();
+        list.insert(ack_begin, true);
         AcknowledgmentList {
             list,
             ack_begin,
@@ -163,11 +172,10 @@ impl AcknowledgmentList {
     ///
     /// * `ack` -   The sequence number of the packet to check
     pub fn check(&self, ack: &u32) -> bool {
-        if *ack == self.ack_begin {
+        if *ack <= self.ack_begin {
             true
-        } else if self.ack_begin <= *ack && *ack <= (self.ack_begin + self.ack_end as u32) {
-            let n = (*ack - self.ack_begin) as u8;
-            match self.list.get(&n) {
+        } else if self.ack_begin < *ack && *ack <= (self.ack_begin + self.ack_end as u32) {
+            match self.list.get(ack) {
                 None => false,
                 Some(v) => *v,
             }
@@ -183,21 +191,36 @@ impl AcknowledgmentList {
     /// * `ack` -   Sequence number of the packet to be added to the acknowledgment
     ///             list
     pub fn insert(&mut self, ack: u32) {
-        if ack < self.ack_begin {
-            panic!("ack too old");
+        if ack > (MAX_WINDOW as u32 + self.ack_begin) {
+            panic!(
+                "ack too large {}\t Diff: {}\n{:?}",
+                ack,
+                ack - self.ack_begin,
+                self.get()
+            );
         }
 
-        if ack > (0xff + self.ack_begin) {
-            panic!("ack too large");
+        if ack > self.ack_begin {
+            let n = (ack - self.ack_begin) as u8;
+
+            if n > self.ack_end {
+                self.ack_end = n;
+            }
+
+            self.list.insert(ack, true);
+            self.update_begin();
         }
+    }
 
-        let n = (ack - self.ack_begin) as u8;
-
-        if n > self.ack_end {
-            self.ack_end = n as u8;
+    /// Update value of begin if consequitive values in `list` after begin have
+    /// been acknowledged.
+    /// This helps keep `check()` more efficient
+    fn update_begin(&mut self) {
+        while self.check(&(self.ack_begin + 1)) {
+            self.list.remove(&(self.ack_begin + 1));
+            self.ack_begin += 1;
+            self.ack_end -= 1;
         }
-
-        self.list.insert(n, true);
     }
 
     /// Get an [`Acknowledgment`] structure out of this [`AcknowledgmentList`]
@@ -205,8 +228,8 @@ impl AcknowledgmentList {
     pub fn get(&self) -> Acknowledgment {
         let mut miss: Vec<u8> = Vec::new();
 
-        for i in 0..(self.ack_end + 1) {
-            match self.list.get(&i) {
+        for i in 1..(self.ack_end + 1) {
+            match self.list.get(&(i as u32 + self.ack_begin)) {
                 None => miss.push(i),
                 Some(false) => miss.push(i),
                 Some(true) => (),
@@ -367,6 +390,7 @@ mod tests {
 
         #[test]
         fn check_complete_test() {
+            println!("\n\nIs complete test\n\n");
             let sequence = 10;
             let mut ack_list = AcknowledgmentList::new(sequence);
 
