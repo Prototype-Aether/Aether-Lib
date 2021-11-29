@@ -32,15 +32,12 @@ mod tests {
         let mut count = 0;
         let mut recv: Vec<Vec<u8>> = Vec::new();
         loop {
-            match link2.recv() {
-                Ok(recved_data) => {
-                    count += 1;
-                    recv.push(recved_data);
-                    if count >= data.len() {
-                        break;
-                    }
+            if let Ok(recved_data) = link2.recv() {
+                count += 1;
+                recv.push(recved_data);
+                if count >= data.len() {
+                    break;
                 }
-                _ => (),
             }
         }
 
