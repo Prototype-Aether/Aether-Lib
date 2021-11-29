@@ -16,7 +16,7 @@ use crate::link::sendthread::SendThread;
 use crate::packet::PType;
 use crate::packet::Packet;
 
-pub const WINDOW_SIZE: u8 = 2;
+pub const WINDOW_SIZE: u8 = 20;
 
 pub fn needs_retry(p_type: &PType) -> bool {
     match p_type {

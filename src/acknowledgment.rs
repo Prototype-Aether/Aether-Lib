@@ -32,7 +32,7 @@ impl Clone for Acknowledgment {
     }
 }
 
-pub const MAX_WINDOW: u8 = 3;
+pub const MAX_WINDOW: u8 = 127;
 
 /// A checklist to store all acknowledgments received.
 /// * Used by sending module to test if a packet has already been acknowledged
