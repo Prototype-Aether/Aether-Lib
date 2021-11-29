@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::sync::Mutex;
 
 use crate::acknowledgment::{AcknowledgmentCheck, AcknowledgmentList};
-use crate::link::WINDOW_SIZE;
+use crate::link::{needs_ack, WINDOW_SIZE};
 use crate::packet::PType;
 use crate::packet::Packet;
 
@@ -78,9 +78,8 @@ impl SendThread {
 
     pub fn ack_packet(&self) -> Packet {
         // Lock seq number
-        let mut seq_lock = self.send_seq.lock().expect("Unable to lock seq");
+        let seq_lock = self.send_seq.lock().expect("Unable to lock seq");
         // Increase sequence number
-        (*seq_lock) += 1;
 
         let seq: u32 = *seq_lock;
 
@@ -111,9 +110,15 @@ impl SendThread {
         let ack = (*ack_lock).get();
         //println!("Adding: {:?}", ack);
         packet.add_ack(ack);
+        if packet.sequence >= 999 {
+            println!("{:?}", packet);
+        }
     }
 
     pub fn send(&mut self, packet: Packet) {
+        if packet.sequence >= 999 {
+            println!("{:?}", packet);
+        }
         let data = packet.compile();
         //let message = String::from_utf8(packet.payload.clone()).unwrap();
         if packet.flags.p_type == PType::Data {
@@ -128,8 +133,8 @@ impl SendThread {
             panic!("Cannot sent");
         }
 
-        //if needs_retry(&packet.flags.p_type) {
-        self.batch_queue.push_back(packet);
-        //}
+        if needs_ack(&packet.flags.p_type) {
+            self.batch_queue.push_back(packet);
+        }
     }
 }
