@@ -20,7 +20,7 @@ mod tests {
 
         let mut data: Vec<Vec<u8>> = Vec::new();
 
-        for i in 1..1000000 {
+        for i in 1..100 {
             data.push(format!("Hello {}", i).as_bytes().to_vec());
         }
 
