@@ -1,5 +1,5 @@
 use crate::acknowledgment::Acknowledgment;
-use crate::util::{compile_u16, compile_u32};
+use crate::util::compile_u32;
 
 use std::convert::From;
 use std::convert::TryInto;
@@ -12,9 +12,9 @@ pub enum PType {
     Extended,
 }
 
-impl Into<u8> for PType {
-    fn into(self) -> u8 {
-        match self {
+impl From<PType> for u8 {
+    fn from(p_type: PType) -> u8 {
+        match p_type {
             PType::Data => 0,
             PType::AckOnly => 1,
             PType::Extended => 15,
@@ -221,12 +221,12 @@ impl From<Vec<u8>> for Packet {
 }
 
 pub struct TrackerPacket {
-    username: String,
-    id_num: u32,
-    req: bool,
-    packet_type: u8,
-    port: u16,
-    ip: [u8; 4],
+    _username: String,
+    _id_num: u32,
+    _req: bool,
+    _packet_type: u8,
+    _port: u16,
+    _ip: [u8; 4],
 }
 
 #[cfg(test)]

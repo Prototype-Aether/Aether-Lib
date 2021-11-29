@@ -9,8 +9,6 @@ use crate::link::WINDOW_SIZE;
 use crate::packet::PType;
 use crate::packet::Packet;
 
-use super::needs_retry;
-
 pub struct SendThread {
     batch_queue: VecDeque<Packet>,
     socket: Arc<UdpSocket>,
@@ -67,7 +65,7 @@ impl SendThread {
                 None => {
                     self.fetch_window();
                     // If still empty
-                    if self.batch_queue.len() <= 0 {
+                    if self.batch_queue.is_empty() {
                         // Send a ack only packet (with empty payload)
                         self.batch_queue.push_back(self.ack_packet());
                     }
@@ -126,7 +124,7 @@ impl SendThread {
             .send_to(&data, self.peer_addr)
             .expect("Unable to send data");
 
-        if result <= 0 {
+        if result == 0 {
             panic!("Cannot sent");
         }
 

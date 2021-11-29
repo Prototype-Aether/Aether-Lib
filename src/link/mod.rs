@@ -68,7 +68,7 @@ impl Link {
         // Create data structure for the send thread
         let mut send_thread_data = SendThread::new(
             self.socket.clone(),
-            self.peer_addr.clone(),
+            self.peer_addr,
             self.primary_queue.clone(),
             self.stop_flag.clone(),
             self.ack_check.clone(),
@@ -84,7 +84,7 @@ impl Link {
         // Create data strcuture for the receive thread
         let recv_thread_data = ReceiveThread::new(
             self.socket.clone(),
-            self.peer_addr.clone(),
+            self.peer_addr,
             self.output_queue.clone(),
             self.stop_flag.clone(),
             self.ack_check.clone(),

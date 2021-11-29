@@ -7,18 +7,16 @@ use std::sync::Mutex;
 use crate::acknowledgment::{AcknowledgmentCheck, AcknowledgmentList};
 use crate::packet::Packet;
 
-use rand::Rng;
-
 pub struct ReceiveThread {
     socket: Arc<UdpSocket>,
-    peer_addr: SocketAddr,
+    _peer_addr: SocketAddr,
     output_queue: Arc<Mutex<VecDeque<Packet>>>,
     stop_flag: Arc<Mutex<bool>>,
 
     ack_list: Arc<Mutex<AcknowledgmentList>>,
     ack_check: Arc<Mutex<AcknowledgmentCheck>>,
 
-    recv_seq: Arc<Mutex<u32>>,
+    _recv_seq: Arc<Mutex<u32>>,
 }
 
 impl ReceiveThread {
@@ -33,12 +31,12 @@ impl ReceiveThread {
     ) -> ReceiveThread {
         ReceiveThread {
             socket,
-            peer_addr,
+            _peer_addr: peer_addr,
             output_queue,
             stop_flag,
             ack_check,
             ack_list,
-            recv_seq,
+            _recv_seq: recv_seq,
         }
     }
 
@@ -97,7 +95,7 @@ impl ReceiveThread {
     }
 
     fn output(&self, packet: Packet) {
-        if packet.payload.len() > 0 {
+        if !packet.payload.is_empty() {
             let mut output_lock = self.output_queue.lock().expect("Cannot lock output queue");
             (*output_lock).push_back(packet);
         }
