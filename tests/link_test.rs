@@ -5,7 +5,6 @@ mod tests {
 
     use aether_lib::link::Link;
     #[test]
-    #[ignore]
     pub fn link_test() {
         let peer_addr1 = SocketAddr::from_str("127.0.0.1:8181").unwrap();
         let peer_addr2 = SocketAddr::from_str("127.0.0.1:8282").unwrap();
