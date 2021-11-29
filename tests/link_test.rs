@@ -12,15 +12,15 @@ mod tests {
         let socket1 = UdpSocket::bind(("0.0.0.0", 8181)).unwrap();
         let socket2 = UdpSocket::bind(("0.0.0.0", 8282)).unwrap();
 
-        let mut link1 = Link::new(socket1, peer_addr2, 10, 1000);
-        let mut link2 = Link::new(socket2, peer_addr1, 1000, 10);
+        let mut link1 = Link::new(socket1, peer_addr2, 0, 1000);
+        let mut link2 = Link::new(socket2, peer_addr1, 1000, 0);
 
         link1.start();
         link2.start();
 
         let mut data: Vec<Vec<u8>> = Vec::new();
 
-        for i in 1..1000 {
+        for i in 1..1000000 {
             data.push(format!("Hello {}", i).as_bytes().to_vec());
         }
 

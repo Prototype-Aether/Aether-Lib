@@ -18,8 +18,8 @@ use crate::packet::Packet;
 
 pub const WINDOW_SIZE: u8 = 20;
 
-pub fn needs_ack(p_type: &PType) -> bool {
-    match p_type {
+pub fn needs_ack(packet: &Packet) -> bool {
+    match packet.flags.p_type {
         PType::Data => true,
         PType::AckOnly => false,
         _ => false,

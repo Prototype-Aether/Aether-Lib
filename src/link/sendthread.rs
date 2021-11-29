@@ -100,30 +100,23 @@ impl SendThread {
     }
 
     pub fn check_ack(&self, packet: &Packet) -> bool {
-        let ack_lock = self.ack_check.lock().expect("Unable to lock ack list");
-        //println!("CHeckin: {:?}", (*ack_lock));
-        (*ack_lock).check(&packet.sequence)
+        if needs_ack(&packet) {
+            let ack_lock = self.ack_check.lock().expect("Unable to lock ack list");
+            (*ack_lock).check(&packet.sequence)
+        } else {
+            false
+        }
     }
 
     pub fn add_ack(&self, packet: &mut Packet) {
         let ack_lock = self.ack_list.lock().expect("Unable to lock ack list");
         let ack = (*ack_lock).get();
-        //println!("Adding: {:?}", ack);
         packet.add_ack(ack);
-        if packet.sequence >= 999 {
-            println!("{:?}", packet);
-        }
     }
 
     pub fn send(&mut self, packet: Packet) {
-        if packet.sequence >= 999 {
-            println!("{:?}", packet);
-        }
         let data = packet.compile();
-        //let message = String::from_utf8(packet.payload.clone()).unwrap();
-        if packet.flags.p_type == PType::Data {
-            //println!("{}", packet.sequence);
-        }
+
         let result = self
             .socket
             .send_to(&data, self.peer_addr)
@@ -133,7 +126,7 @@ impl SendThread {
             panic!("Cannot sent");
         }
 
-        if needs_ack(&packet.flags.p_type) {
+        if needs_ack(&packet) {
             self.batch_queue.push_back(packet);
         }
     }

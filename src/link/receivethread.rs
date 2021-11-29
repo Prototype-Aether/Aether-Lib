@@ -1,3 +1,4 @@
+use rand::{thread_rng, Rng};
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::net::SocketAddr;
@@ -23,12 +24,13 @@ impl OrderList {
         }
     }
 
-    pub fn insert(&mut self, packet: Packet) -> Result<Vec<Packet>, u8> {
+    pub fn insert(&mut self, packet: Packet) -> Result<VecDeque<Packet>, u8> {
         if packet.sequence > self.seq + 1 {
             self.list.insert(packet.sequence, packet);
             Err(1)
         } else if packet.sequence == self.seq + 1 {
-            let mut result = vec![packet];
+            let mut result: VecDeque<Packet> = VecDeque::new();
+            result.push_back(packet);
 
             self.seq += 1;
 
@@ -36,7 +38,8 @@ impl OrderList {
                 match self.list.remove(&(self.seq + 1)) {
                     Some(n_packet) => {
                         self.seq += 1;
-                        result.push(n_packet);
+                        //println!("Next {}", self.seq);
+                        result.push_back(n_packet);
                     }
                     None => break Ok(result),
                 }
@@ -102,10 +105,9 @@ impl ReceiveThread {
             drop(flag_lock);
 
             /* Simulate packet loss
-            if rand::thread_rng().gen_range(0..100) < 50 {
+            if thread_rng().gen_range(0..100) < 99 {
                 continue;
-            }
-            */
+            }*/
 
             let size = match self.socket.recv(&mut buf) {
                 Ok(result) => result,
@@ -132,7 +134,7 @@ impl ReceiveThread {
     }
 
     fn send_ack(&self, packet: &Packet) {
-        if needs_ack(&packet.flags.p_type) {
+        if needs_ack(&packet) {
             let mut ack_lock = self.ack_list.lock().expect("Unable to lack ack list");
             (*ack_lock).insert(packet.sequence);
         }
@@ -151,16 +153,10 @@ impl ReceiveThread {
     }
 
     fn order_output(&mut self, packet: Packet) {
-        //println!("{:?}", packet.sequence);
-        let mut output_lock = self.output_queue.lock().expect("Cannot lock output queue");
-        (*output_lock).push_back(packet);
-        return;
         match self.order_list.insert(packet) {
             Ok(mut packets) => loop {
-                println!("{:?}", packets);
-                match packets.pop() {
+                match packets.pop_front() {
                     Some(p) => {
-                        println!("{:?}", p);
                         let mut output_lock =
                             self.output_queue.lock().expect("Cannot lock output queue");
                         (*output_lock).push_back(p);
