@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::sync::Mutex;
 
 use crate::acknowledgment::{AcknowledgmentCheck, AcknowledgmentList};
-use crate::link::WINDOW_SIZE;
+use crate::link::{needs_ack, WINDOW_SIZE};
 use crate::packet::PType;
 use crate::packet::Packet;
 
@@ -78,9 +78,8 @@ impl SendThread {
 
     pub fn ack_packet(&self) -> Packet {
         // Lock seq number
-        let mut seq_lock = self.send_seq.lock().expect("Unable to lock seq");
+        let seq_lock = self.send_seq.lock().expect("Unable to lock seq");
         // Increase sequence number
-        (*seq_lock) += 1;
 
         let seq: u32 = *seq_lock;
 
@@ -101,24 +100,23 @@ impl SendThread {
     }
 
     pub fn check_ack(&self, packet: &Packet) -> bool {
-        let ack_lock = self.ack_check.lock().expect("Unable to lock ack list");
-        //println!("CHeckin: {:?}", (*ack_lock));
-        (*ack_lock).check(&packet.sequence)
+        if needs_ack(&packet) {
+            let ack_lock = self.ack_check.lock().expect("Unable to lock ack list");
+            (*ack_lock).check(&packet.sequence)
+        } else {
+            false
+        }
     }
 
     pub fn add_ack(&self, packet: &mut Packet) {
         let ack_lock = self.ack_list.lock().expect("Unable to lock ack list");
         let ack = (*ack_lock).get();
-        //println!("Adding: {:?}", ack);
         packet.add_ack(ack);
     }
 
     pub fn send(&mut self, packet: Packet) {
         let data = packet.compile();
-        //let message = String::from_utf8(packet.payload.clone()).unwrap();
-        if packet.flags.p_type == PType::Data {
-            //println!("{}", packet.sequence);
-        }
+
         let result = self
             .socket
             .send_to(&data, self.peer_addr)
@@ -128,8 +126,8 @@ impl SendThread {
             panic!("Cannot sent");
         }
 
-        //if needs_retry(&packet.flags.p_type) {
-        self.batch_queue.push_back(packet);
-        //}
+        if needs_ack(&packet) {
+            self.batch_queue.push_back(packet);
+        }
     }
 }
