@@ -9,6 +9,7 @@ use std::vec::Vec;
 pub enum PType {
     Data,
     AckOnly,
+    Initiation,
     Extended,
 }
 
@@ -17,6 +18,7 @@ impl From<PType> for u8 {
         match p_type {
             PType::Data => 0,
             PType::AckOnly => 1,
+            PType::Initiation => 2,
             PType::Extended => 15,
         }
     }
@@ -27,6 +29,7 @@ impl From<u8> for PType {
         match Option::from(p_type) {
             Some(0) => PType::Data,
             Some(1) => PType::AckOnly,
+            Some(2) => PType::Initiation,
             _ => PType::Extended,
         }
     }

@@ -2,12 +2,23 @@ use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 
 #[derive(Serialize, Deserialize)]
-pub struct TrackerPacket {
+pub struct ConnectionRequest {
+    pub identity_number: u32,
     pub username: String,
+    pub port: u16,
+    pub ip: [u8; 4],
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct TrackerPacket {
+    pub identity_number: u32,
+    pub username: String,
+    pub peer_username: String,
     pub req: bool,
     pub packet_type: u8,
     pub port: u16,
     pub ip: [u8; 4],
+    pub connections: Vec<ConnectionRequest>,
 }
 
 impl TryFrom<TrackerPacket> for Vec<u8> {
@@ -43,7 +54,10 @@ mod tests {
     use std::convert::TryFrom;
     #[test]
     fn tracker_test() {
-        let mut packet = TrackerPacket {
+        let packet = TrackerPacket {
+            identity_number: 42,
+            peer_username: "another".to_string(),
+            connections: Vec::new(),
             username: "test".to_string(),
             req: true,
             packet_type: 10 as u8,
@@ -53,6 +67,9 @@ mod tests {
         let parsed_packet: Vec<u8> = TryFrom::try_from(packet).unwrap();
         let unparsed_packet: TrackerPacket = TryFrom::try_from(parsed_packet).unwrap();
         assert_eq!("test".to_string(), unparsed_packet.username);
+        assert_eq!("another".to_string(), unparsed_packet.peer_username);
+        assert!(unparsed_packet.connections.is_empty());
+        assert_eq!(42, unparsed_packet.identity_number);
         assert_eq!(true, unparsed_packet.req);
         assert_eq!(10, unparsed_packet.packet_type);
         assert_eq!(1234, unparsed_packet.port);
