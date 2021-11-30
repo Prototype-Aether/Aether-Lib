@@ -34,3 +34,28 @@ impl TryFrom<Vec<u8>> for TrackerPacket {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    use crate::tracker::TrackerPacket;
+    use serde::{Deserialize, Serialize};
+    use std::convert::TryFrom;
+    #[test]
+    fn tracker_test() {
+        let mut packet = TrackerPacket {
+            username: "test".to_string(),
+            req: true,
+            packet_type: 10 as u8,
+            port: 1234,
+            ip: [1, 2, 3, 4],
+        };
+        let parsed_packet: Vec<u8> = TryFrom::try_from(packet).unwrap();
+        let unparsed_packet: TrackerPacket = TryFrom::try_from(parsed_packet).unwrap();
+        assert_eq!("test".to_string(), unparsed_packet.username);
+        assert_eq!(true, unparsed_packet.req);
+        assert_eq!(10, unparsed_packet.packet_type);
+        assert_eq!(1234, unparsed_packet.port);
+        assert_eq!([1, 2, 3, 4], unparsed_packet.ip);
+    }
+}
