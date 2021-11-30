@@ -1,15 +1,69 @@
 use crate::acknowledgment::Acknowledgment;
-use crate::util::{compile_u16, compile_u32};
+use crate::util::compile_u32;
 
 use std::convert::From;
 use std::convert::TryInto;
 use std::vec::Vec;
 
+#[derive(Debug, Clone)]
+pub enum PType {
+    Data,
+    AckOnly,
+    Extended,
+}
+
+impl From<PType> for u8 {
+    fn from(p_type: PType) -> u8 {
+        match p_type {
+            PType::Data => 0,
+            PType::AckOnly => 1,
+            PType::Extended => 15,
+        }
+    }
+}
+
+impl From<u8> for PType {
+    fn from(p_type: u8) -> PType {
+        match Option::from(p_type) {
+            Some(0) => PType::Data,
+            Some(1) => PType::AckOnly,
+            _ => PType::Extended,
+        }
+    }
+}
+
+impl PartialEq for PType {
+    fn eq(&self, other: &Self) -> bool {
+        (self.clone() as u8) == (other.clone() as u8)
+    }
+}
+
+#[derive(Debug)]
+pub struct PacketFlags {
+    pub p_type: PType,
+    pub ack: bool,
+    pub enc: bool,
+}
+
+impl PacketFlags {
+    pub fn get_byte(&self) -> u8 {
+        let mut byte: u8 = 0;
+        byte |= (self.p_type.clone() as u8) << 4;
+        if self.ack {
+            byte |= 1 << 3;
+        }
+        if self.enc {
+            byte |= 1 << 2;
+        }
+        byte
+    }
+}
+
+#[derive(Debug)]
 pub struct Packet {
-    pub id: u32,
+    pub flags: PacketFlags,
     pub sequence: u32,
     pub ack: Acknowledgment,
-    pub length: u16,
     pub payload: Vec<u8>,
 }
 
@@ -20,9 +74,13 @@ impl Packet {
     ///
     /// * `id`    -   A u32 representing the id of the packet
     /// * `sequence` - A u32 representing the sequence number of the packet
-    pub fn new(id: u32, sequence: u32) -> Packet {
+    pub fn new(p_type: PType, sequence: u32) -> Packet {
         Packet {
-            id,
+            flags: PacketFlags {
+                p_type,
+                ack: false,
+                enc: false,
+            },
             sequence,
             ack: Acknowledgment {
                 ack_begin: 0,
@@ -30,7 +88,6 @@ impl Packet {
                 miss_count: 0,
                 miss: Vec::new(),
             },
-            length: 0,
             payload: Vec::new(),
         }
     }
@@ -41,6 +98,7 @@ impl Packet {
     /// * `ack`    -   A Acknowledgment struct
     pub fn add_ack(&mut self, ack: Acknowledgment) {
         self.ack = ack;
+        self.flags.ack = true;
     }
     ///Append payload Vec<u8> to the packet
     /// also assigns the length of the packet
@@ -50,20 +108,19 @@ impl Packet {
     /// * `payload`    -   Vec<u8> representing the payload of the packet
     pub fn append_payload(&mut self, payload: Vec<u8>) {
         self.payload.extend(payload);
-        self.length = self.payload.len() as u16;
     }
-    // Compile the data in the packet into packet struct
-    //
-    // # Arguments
-    //
-    // * 'self' - The Packet struct
+    /// Compile the data in the packet into packet struct
+    ///
+    /// # Arguments
+    ///
+    /// * 'self' - The Packet struct
     pub fn compile(&self) -> Vec<u8> {
         // Vector to store final compiled packet structure
         let mut packet_vector = Vec::<u8>::new();
 
         // Packet ID converting u32 to u8(vector)
-        let slice_id = compile_u32(self.id);
-        packet_vector.extend(slice_id);
+        // let slice_id = compile_u32(self.id);
+        // packet_vector.extend(slice_id);
 
         // Packet Sequence converting u32 to u8(vector)
         let slice_sequence = compile_u32(self.sequence);
@@ -75,20 +132,35 @@ impl Packet {
 
         packet_vector.push(self.ack.ack_end);
 
+        packet_vector.push(self.flags.get_byte());
+
         packet_vector.push(self.ack.miss_count);
 
         let slice_miss = self.ack.miss.clone();
         packet_vector.extend(slice_miss);
-
-        // Packet Length converting u16 to u8(vector)
-        let slice_length = compile_u16(self.length);
-        packet_vector.extend(slice_length);
 
         let slice_payload = self.payload.clone();
         packet_vector.extend(slice_payload);
 
         // currently the packet_vector is a vector of u8 but we have to convert into string and then into bytes
         packet_vector
+    }
+}
+impl From<u8> for PacketFlags {
+    fn from(byte: u8) -> Self {
+        let mut flags = PacketFlags {
+            p_type: PType::Data,
+            ack: false,
+            enc: false,
+        };
+        flags.p_type = PType::from((byte >> 4) & 0x0F);
+        if (byte >> 3) & 0x01 == 1 {
+            flags.ack = true;
+        }
+        if (byte >> 2) & 0x01 == 1 {
+            flags.enc = true;
+        }
+        flags
     }
 }
 
@@ -98,7 +170,11 @@ impl From<Vec<u8>> for Packet {
     // *bytes - A vector of u8 representing the raw bytes of the packet
     fn from(bytes: Vec<u8>) -> Packet {
         let mut packet_default = Packet {
-            id: 0,
+            flags: PacketFlags {
+                p_type: PType::Data,
+                ack: false,
+                enc: false,
+            },
             sequence: 0,
             ack: Acknowledgment {
                 ack_begin: 0,
@@ -106,57 +182,68 @@ impl From<Vec<u8>> for Packet {
                 miss_count: 0,
                 miss: Vec::new(),
             },
-            length: 0,
             payload: Vec::new(),
         };
 
         // Packet ID converting u8 to u32(vector)
-        let id_array = bytes[0..4].try_into().unwrap();
-        packet_default.id = u32::from_be_bytes(id_array);
+        // let id_array = bytes[0..4].try_into().unwrap();
+        // packet_default.id = u32::from_be_bytes(id_array);
 
         // Packet Sequence converting u8 to u32(vector)
-        let sequence_array = bytes[4..8].try_into().unwrap();
+        let sequence_array = bytes[0..4].try_into().unwrap();
         packet_default.sequence = u32::from_be_bytes(sequence_array);
 
         // Packet Ack Begin converting u8 to u32(vector)
-        let ack_begin_array = bytes[8..12].try_into().unwrap();
+        let ack_begin_array = bytes[4..8].try_into().unwrap();
         packet_default.ack.ack_begin = u32::from_be_bytes(ack_begin_array);
 
-        packet_default.ack.ack_end = bytes[12];
+        packet_default.ack.ack_end = bytes[8];
 
-        packet_default.ack.miss_count = bytes[13];
+        packet_default.flags = PacketFlags::from(bytes[9]);
 
-        packet_default.ack.miss = bytes[14..14 + packet_default.ack.miss_count as usize].to_vec();
+        packet_default.ack.miss_count = bytes[10];
 
+        packet_default.ack.miss = bytes[11..11 + packet_default.ack.miss_count as usize].to_vec();
+
+        let payload_start = 11 + packet_default.ack.miss_count as usize;
+        let payload_length = bytes.len() - payload_start;
         // Packet Length converting u8 to u16(vector)
-        let length_array = bytes[14 + packet_default.ack.miss_count as usize
-            ..16 + packet_default.ack.miss_count as usize]
-            .try_into()
-            .unwrap();
-        packet_default.length = u16::from_be_bytes(length_array);
+        // let length_array = bytes[11 + packet_default.ack.miss_count as usize
+        //     ..13 + packet_default.ack.miss_count as usize]
+        //     .try_into()
+        //     .unwrap();
+        // packet_default.length = u16::from_be_bytes(length_array);
 
-        packet_default.payload = bytes[16 + packet_default.ack.miss_count as usize
-            ..16 + packet_default.ack.miss_count as usize + packet_default.length as usize]
-            .to_vec();
+        packet_default.payload = bytes[payload_start..payload_start + payload_length].to_vec();
 
         packet_default
     }
 }
 
+pub struct TrackerPacket {
+    _username: String,
+    _id_num: u32,
+    _req: bool,
+    _packet_type: u8,
+    _port: u16,
+    _ip: [u8; 4],
+}
+
 #[cfg(test)]
 mod tests {
+    use crate::packet::PType;
     use crate::{acknowledgment::AcknowledgmentList, packet};
 
     #[test]
     fn range_test() {
-        let pack = packet::Packet::new(0, 0);
+        let pack = packet::Packet::new(PType::Data, 0);
         assert!(pack.ack.ack_begin <= pack.ack.ack_end.into());
         assert!(pack.ack.miss_count as u32 <= (pack.ack.ack_end as u32 - pack.ack.ack_begin));
     }
 
     #[test]
     fn compile_test() {
-        let mut pack = packet::Packet::new(2112352, 32850943);
+        let mut pack = packet::Packet::new(PType::Data, 32850943);
         let mut ack_list = AcknowledgmentList::new(329965);
         ack_list.insert(329966);
         ack_list.insert(329967);
@@ -169,13 +256,17 @@ mod tests {
 
         let pack_out = packet::Packet::from(compiled);
 
-        assert_eq!(pack.id, pack_out.id);
         assert_eq!(pack.sequence, pack_out.sequence);
+
+        assert_eq!(pack.flags.p_type, pack_out.flags.p_type);
+        assert_eq!(pack.flags.ack, pack_out.flags.ack);
+        assert_eq!(pack.flags.enc, pack_out.flags.enc);
+
         assert_eq!(pack.ack.ack_begin, pack_out.ack.ack_begin);
         assert_eq!(pack.ack.ack_end, pack_out.ack.ack_end);
         assert_eq!(pack.ack.miss_count, pack_out.ack.miss_count);
         assert_eq!(pack.ack.miss, pack_out.ack.miss);
-        assert_eq!(pack.length, pack_out.length);
+
         assert_eq!(pack.payload, pack_out.payload);
     }
 }
