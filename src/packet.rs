@@ -220,15 +220,6 @@ impl From<Vec<u8>> for Packet {
     }
 }
 
-pub struct TrackerPacket {
-    _username: String,
-    _id_num: u32,
-    _req: bool,
-    _packet_type: u8,
-    _port: u16,
-    _ip: [u8; 4],
-}
-
 #[cfg(test)]
 mod tests {
     use crate::packet::PType;
