@@ -3,11 +3,16 @@ use std::net::SocketAddr;
 use std::net::UdpSocket;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::thread;
+use std::time::Duration;
 
 use crate::acknowledgment::{AcknowledgmentCheck, AcknowledgmentList};
+use crate::link::MAX_RETRIES;
+use crate::link::RETRY_DELAY;
 use crate::link::{needs_ack, WINDOW_SIZE};
 use crate::packet::PType;
 use crate::packet::Packet;
+use crate::packet::PacketMeta;
 
 pub struct SendThread {
     batch_queue: VecDeque<Packet>,
@@ -61,23 +66,66 @@ impl SendThread {
 
             match self.batch_queue.pop_front() {
                 Some(mut packet) => {
-                    if !self.check_ack(&packet) {
-                        self.add_ack(&mut packet);
-                        self.send(packet);
+                    if packet.is_meta {
+                        if !self.batch_queue.is_empty() {
+                            // If this is a meta packet check if it requires a delay
+                            if packet.meta.delay_ms > 0 {
+                                thread::sleep(Duration::from_millis(packet.meta.delay_ms));
+                            }
+
+                            // Increase retry count since after this same packets
+                            // will be sent again
+                            let retry_count = packet.meta.retry_count + 1;
+
+                            if retry_count >= MAX_RETRIES {
+                                // Stop connection if too many retries
+                                let mut flag_lock =
+                                    self.stop_flag.lock().expect("Error locking stop flag");
+                                *flag_lock = true;
+                            } else {
+                                let mut meta_packet = Packet::new(PType::Extended, 0);
+
+                                meta_packet.set_meta(PacketMeta {
+                                    retry_count,
+                                    delay_ms: RETRY_DELAY,
+                                });
+
+                                self.batch_queue.push_back(meta_packet);
+                            }
+                        }
+                    } else {
+                        if !self.check_ack(&packet) {
+                            self.add_ack(&mut packet);
+                            self.send(packet);
+                        }
                     }
                 }
                 None => {
                     self.fetch_window();
                     let mut empty_lock = self.is_empty.lock().expect("Unable to lock empty bool");
 
+                    let mut retry_delay = 0;
                     // If still empty
                     if self.batch_queue.is_empty() {
                         (*empty_lock) = true;
                         // Send a ack only packet (with empty payload)
                         self.batch_queue.push_back(self.ack_packet());
+                        retry_delay = RETRY_DELAY;
                     } else {
                         (*empty_lock) = false;
                     }
+
+                    // At end of each window push a meta packet
+                    // This is to keep track of number of retries
+                    let mut meta_packet = Packet::new(PType::Extended, 0);
+
+                    // Retry count here is -1 so after trying once it is set to 0
+                    meta_packet.set_meta(PacketMeta {
+                        retry_count: -1,
+                        delay_ms: retry_delay,
+                    });
+
+                    self.batch_queue.push_back(meta_packet);
 
                     drop(empty_lock);
                 }

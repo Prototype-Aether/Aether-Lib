@@ -20,6 +20,8 @@ pub const WINDOW_SIZE: u8 = 20;
 pub const ACK_WAIT_TIME: u64 = 1000;
 pub const POLL_TIME_US: u64 = 100;
 pub const TIMEOUT: u64 = 10_000;
+pub const RETRY_DELAY: u64 = 1000;
+pub const MAX_RETRIES: i16 = 10;
 
 pub fn needs_ack(packet: &Packet) -> bool {
     match packet.flags.p_type {

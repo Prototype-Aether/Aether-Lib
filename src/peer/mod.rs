@@ -1,6 +1,6 @@
 use std::{
     net::{SocketAddr, UdpSocket},
-    time::Duration,
+    time::{Duration, SystemTime},
 };
 
 use crate::{acknowledgment::Acknowledgment, packet::Packet};
@@ -9,17 +9,16 @@ use crate::{link::Link, packet::PType};
 use rand::{thread_rng, Rng};
 
 const INITIATE_DELAY: u64 = 500;
+const HANDSHAKE_TIMEOUT: u64 = 5_000;
 
 pub fn handshake(
     socket: UdpSocket,
     address: SocketAddr,
     my_username: String,
     peer_username: String,
-) -> Link {
+) -> Result<Link, u8> {
     let seq = thread_rng().gen_range(0..(1 << 16 as u32)) as u32;
     let recv_seq: u32;
-
-    println!("Seq: {}", seq);
 
     let ack: bool;
 
@@ -32,8 +31,15 @@ pub fn handshake(
 
     let sequence_data = packet.compile();
 
+    let now = SystemTime::now();
     // Repeat sending start sequence number and ID
     loop {
+        let elapsed = now.elapsed().expect("Unable to get system time");
+
+        if elapsed.as_millis() > HANDSHAKE_TIMEOUT.into() {
+            return Err(255);
+        }
+
         socket
             .send_to(&sequence_data, address)
             .expect("Couldn't send sequence");
@@ -42,7 +48,7 @@ pub fn handshake(
 
         match socket.recv(&mut buf) {
             Ok(size) => {
-                if thread_rng().gen_range(0..100) > 20 && size > 0 {
+                if size > 0 {
                     let recved = Packet::from(buf[..size].to_vec());
                     let username_recved =
                         String::from_utf8(recved.payload.clone()).expect("Unable to get username");
@@ -61,8 +67,6 @@ pub fn handshake(
         }
     }
 
-    println!("{}: stage 1 complete", my_username);
-
     // If not acknowledged by other peer yet
     if !ack {
         packet.add_ack(Acknowledgment {
@@ -76,17 +80,21 @@ pub fn handshake(
 
         // Repeat sending start sequence number, acknowledgement and ID
         loop {
+            let elapsed = now.elapsed().expect("Unable to get system time");
+
+            if elapsed.as_millis() > HANDSHAKE_TIMEOUT.into() {
+                return Err(255);
+            }
+
             socket
                 .send_to(&ack_data, address)
                 .expect("Couldn't send sequence");
 
             let mut buf: [u8; 1024] = [0; 1024];
-            if thread_rng().gen_range(0..100) < 99 {
-                continue;
-            }
+
             match socket.recv(&mut buf) {
                 Ok(size) => {
-                    if thread_rng().gen_range(0..100) > 20 && size > 0 {
+                    if size > 0 {
                         let recved = Packet::from(buf[..size].to_vec());
                         let username_recved = String::from_utf8(recved.payload.clone())
                             .expect("Unable to get username");
@@ -104,13 +112,10 @@ pub fn handshake(
         }
     }
 
-    println!("{}: stage 2 complete", my_username);
-    println!("Handshake done {}", seq);
-
     // Start the link
     let mut link = Link::new(socket, address.clone(), seq, recv_seq);
 
     link.start();
 
-    link
+    Ok(link)
 }

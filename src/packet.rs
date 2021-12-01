@@ -63,11 +63,19 @@ impl PacketFlags {
 }
 
 #[derive(Debug)]
+pub struct PacketMeta {
+    pub delay_ms: u64,
+    pub retry_count: i16,
+}
+
+#[derive(Debug)]
 pub struct Packet {
     pub flags: PacketFlags,
     pub sequence: u32,
     pub ack: Acknowledgment,
     pub payload: Vec<u8>,
+    pub is_meta: bool,
+    pub meta: PacketMeta,
 }
 
 impl Packet {
@@ -92,8 +100,19 @@ impl Packet {
                 miss: Vec::new(),
             },
             payload: Vec::new(),
+            is_meta: false,
+            meta: PacketMeta {
+                delay_ms: 0,
+                retry_count: 0,
+            },
         }
     }
+
+    pub fn set_meta(&mut self, meta: PacketMeta) {
+        self.is_meta = true;
+        self.meta = meta;
+    }
+
     /// Add ack struct into the packet
     ///
     /// # Arguments
@@ -186,6 +205,11 @@ impl From<Vec<u8>> for Packet {
                 miss: Vec::new(),
             },
             payload: Vec::new(),
+            is_meta: false,
+            meta: PacketMeta {
+                delay_ms: 0,
+                retry_count: 0,
+            },
         };
 
         // Packet ID converting u8 to u32(vector)

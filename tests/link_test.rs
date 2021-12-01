@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use std::net::UdpSocket;
+    use std::net::{IpAddr, Ipv4Addr, UdpSocket};
     use std::thread;
     use std::time::Duration;
 
@@ -11,11 +11,16 @@ mod tests {
         let socket1 = UdpSocket::bind(("0.0.0.0", 0)).unwrap();
         let socket2 = UdpSocket::bind(("0.0.0.0", 0)).unwrap();
 
-        let peer_addr1 = socket1.local_addr().unwrap();
-        let peer_addr2 = socket2.local_addr().unwrap();
+        let mut peer_addr1 = socket1.local_addr().unwrap();
+        let mut peer_addr2 = socket2.local_addr().unwrap();
+
+        peer_addr1.set_ip(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)));
+        peer_addr2.set_ip(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)));
 
         let mut link1 = Link::new(socket1, peer_addr2, 0, 1000);
         let mut link2 = Link::new(socket2, peer_addr1, 1000, 0);
+
+        println!("{:?} {:?}", peer_addr1, peer_addr2);
 
         link1.start();
         link2.start();
@@ -58,9 +63,13 @@ mod tests {
         let socket1 = UdpSocket::bind(("0.0.0.0", 0)).unwrap();
         let socket2 = UdpSocket::bind(("0.0.0.0", 0)).unwrap();
 
-        let peer_addr1 = socket1.local_addr().unwrap();
-        let peer_addr2 = socket2.local_addr().unwrap();
+        let mut peer_addr1 = socket1.local_addr().unwrap();
+        let mut peer_addr2 = socket2.local_addr().unwrap();
 
+        peer_addr1.set_ip(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)));
+        peer_addr2.set_ip(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)));
+
+        println!("{:?} {:?}", peer_addr1, peer_addr2);
         let len = 100;
 
         let send_thread = thread::spawn(move || {
@@ -69,7 +78,8 @@ mod tests {
                 peer_addr2,
                 String::from("peer1"),
                 String::from("peer2"),
-            );
+            )
+            .expect("Handshake failed");
 
             let mut data: Vec<Vec<u8>> = Vec::new();
 
@@ -93,7 +103,8 @@ mod tests {
                 peer_addr1,
                 String::from("peer2"),
                 String::from("peer1"),
-            );
+            )
+            .expect("Handshake failed");
 
             let mut count = 0;
             let mut recv: Vec<Vec<u8>> = Vec::new();
