@@ -2,10 +2,9 @@
 mod tests {
     use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
     use std::thread;
-    use std::time::Duration;
 
     use aether_lib::link::Link;
-    use aether_lib::peer::handshake;
+    use aether_lib::peer::handshake::handshake;
     #[test]
     pub fn link_test() {
         let socket1 = UdpSocket::bind(("0.0.0.0", 0)).unwrap();
