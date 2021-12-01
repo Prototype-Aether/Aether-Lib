@@ -58,7 +58,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     pub fn handshake_test() {
         let socket1 = UdpSocket::bind(("0.0.0.0", 0)).unwrap();
         let socket2 = UdpSocket::bind(("0.0.0.0", 0)).unwrap();
