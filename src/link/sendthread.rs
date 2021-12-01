@@ -68,6 +68,12 @@ impl SendThread {
                 Some(mut packet) => {
                     if packet.is_meta {
                         if !self.batch_queue.is_empty() {
+                            println!(
+                                "Queue: {} {} {}",
+                                self.batch_queue.len(),
+                                packet.meta.delay_ms,
+                                packet.meta.retry_count
+                            );
                             // If this is a meta packet check if it requires a delay
                             if packet.meta.delay_ms > 0 {
                                 thread::sleep(Duration::from_millis(packet.meta.delay_ms));
@@ -104,7 +110,7 @@ impl SendThread {
                     self.fetch_window();
                     let mut empty_lock = self.is_empty.lock().expect("Unable to lock empty bool");
 
-                    let retry_delay = RETRY_DELAY;
+                    let retry_delay = 0;
                     // If still empty
                     if self.batch_queue.is_empty() {
                         (*empty_lock) = true;
@@ -113,6 +119,8 @@ impl SendThread {
                     } else {
                         (*empty_lock) = false;
                     }
+
+                    drop(empty_lock);
 
                     // At end of each window push a meta packet
                     // This is to keep track of number of retries
@@ -125,8 +133,6 @@ impl SendThread {
                     });
 
                     self.batch_queue.push_back(meta_packet);
-
-                    drop(empty_lock);
                 }
             }
         }
@@ -179,6 +185,10 @@ impl SendThread {
 
     pub fn send(&mut self, packet: Packet) {
         let data = packet.compile();
+
+        if packet.flags.p_type == PType::Data {
+            println!("Send {}", packet.sequence);
+        }
 
         let result = self
             .socket
