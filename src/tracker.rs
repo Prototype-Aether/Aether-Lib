@@ -9,6 +9,17 @@ pub struct ConnectionRequest {
     pub ip: [u8; 4],
 }
 
+impl Clone for ConnectionRequest {
+    fn clone(&self) -> Self {
+        ConnectionRequest {
+            identity_number: self.identity_number,
+            username: self.username.clone(),
+            port: self.port,
+            ip: self.ip.clone(),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct TrackerPacket {
     pub identity_number: u32,
