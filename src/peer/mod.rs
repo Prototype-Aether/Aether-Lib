@@ -42,7 +42,7 @@ pub fn handshake(
 
         match socket.recv(&mut buf) {
             Ok(size) => {
-                if size > 0 {
+                if thread_rng().gen_range(0..100) > 20 && size > 0 {
                     let recved = Packet::from(buf[..size].to_vec());
                     let username_recved =
                         String::from_utf8(recved.payload.clone()).expect("Unable to get username");
@@ -60,6 +60,8 @@ pub fn handshake(
             _ => (),
         }
     }
+
+    println!("{}: stage 1 complete", my_username);
 
     // If not acknowledged by other peer yet
     if !ack {
@@ -79,10 +81,12 @@ pub fn handshake(
                 .expect("Couldn't send sequence");
 
             let mut buf: [u8; 1024] = [0; 1024];
-
+            if thread_rng().gen_range(0..100) < 99 {
+                continue;
+            }
             match socket.recv(&mut buf) {
                 Ok(size) => {
-                    if size > 0 {
+                    if thread_rng().gen_range(0..100) > 20 && size > 0 {
                         let recved = Packet::from(buf[..size].to_vec());
                         let username_recved = String::from_utf8(recved.payload.clone())
                             .expect("Unable to get username");
@@ -100,7 +104,8 @@ pub fn handshake(
         }
     }
 
-    println!("Handhskae done {}", seq);
+    println!("{}: stage 2 complete", my_username);
+    println!("Handshake done {}", seq);
 
     // Start the link
     let mut link = Link::new(socket, address.clone(), seq, recv_seq);
