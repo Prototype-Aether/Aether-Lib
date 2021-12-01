@@ -3,5 +3,6 @@
 pub mod acknowledgment;
 pub mod link;
 pub mod packet;
+pub mod peer;
 pub mod tracker;
 pub mod util;

@@ -1,16 +1,18 @@
 #[cfg(test)]
 mod tests {
-    use std::net::{SocketAddr, UdpSocket};
-    use std::str::FromStr;
+    use std::net::UdpSocket;
+    use std::thread;
+    use std::time::Duration;
 
     use aether_lib::link::Link;
+    use aether_lib::peer::handshake;
     #[test]
     pub fn link_test() {
-        let peer_addr1 = SocketAddr::from_str("127.0.0.1:8181").unwrap();
-        let peer_addr2 = SocketAddr::from_str("127.0.0.1:8282").unwrap();
+        let socket1 = UdpSocket::bind(("0.0.0.0", 0)).unwrap();
+        let socket2 = UdpSocket::bind(("0.0.0.0", 0)).unwrap();
 
-        let socket1 = UdpSocket::bind(("0.0.0.0", 8181)).unwrap();
-        let socket2 = UdpSocket::bind(("0.0.0.0", 8282)).unwrap();
+        let peer_addr1 = socket1.local_addr().unwrap();
+        let peer_addr2 = socket2.local_addr().unwrap();
 
         let mut link1 = Link::new(socket1, peer_addr2, 0, 1000);
         let mut link2 = Link::new(socket2, peer_addr1, 1000, 0);
@@ -39,6 +41,81 @@ mod tests {
                 }
             }
         }
+
+        for i in 0..recv.len() {
+            let a = String::from_utf8(recv[i].clone()).unwrap();
+            let b = String::from_utf8(data[i].clone()).unwrap();
+            println!("{} == {}", a, b);
+            assert_eq!(recv[i], data[i]);
+        }
+
+        println!("Stopping");
+    }
+
+    #[test]
+    pub fn handshake_test() {
+        let socket1 = UdpSocket::bind(("0.0.0.0", 0)).unwrap();
+        let socket2 = UdpSocket::bind(("0.0.0.0", 0)).unwrap();
+
+        let peer_addr1 = socket1.local_addr().unwrap();
+        let peer_addr2 = socket2.local_addr().unwrap();
+
+        let len = 100;
+
+        let send_thread = thread::spawn(move || {
+            let mut link = handshake(
+                socket1,
+                peer_addr2,
+                String::from("peer1"),
+                String::from("peer2"),
+            );
+
+            let mut data: Vec<Vec<u8>> = Vec::new();
+
+            for i in 0..len {
+                data.push(format!("Hello {}", i).as_bytes().to_vec());
+            }
+
+            for x in &data {
+                link.send(x.clone());
+            }
+
+            link.wait();
+            println!("Stopping sender");
+
+            data
+        });
+
+        let recv_thread = thread::spawn(move || {
+            let mut link = handshake(
+                socket2,
+                peer_addr1,
+                String::from("peer2"),
+                String::from("peer1"),
+            );
+
+            let mut count = 0;
+            let mut recv: Vec<Vec<u8>> = Vec::new();
+            loop {
+                match link.recv() {
+                    Ok(recved_data) => {
+                        count += 1;
+                        recv.push(recved_data);
+                        if count >= len {
+                            break;
+                        }
+                    }
+                    Err(255) => panic!("Connection closed"),
+                    Err(_) => panic!("Unexpected error while receiving"),
+                }
+            }
+
+            println!("Stopping receiver");
+            recv
+        });
+
+        let data = send_thread.join().expect("Send thread panicked");
+        let recv = recv_thread.join().expect("Receive thread panicked");
 
         for i in 0..recv.len() {
             let a = String::from_utf8(recv[i].clone()).unwrap();

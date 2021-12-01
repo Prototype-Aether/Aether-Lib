@@ -16,6 +16,8 @@ pub struct SendThread {
     primary_queue: Arc<Mutex<VecDeque<Packet>>>,
     stop_flag: Arc<Mutex<bool>>,
 
+    is_empty: Arc<Mutex<bool>>,
+
     ack_list: Arc<Mutex<AcknowledgmentList>>,
     ack_check: Arc<Mutex<AcknowledgmentCheck>>,
 
@@ -31,6 +33,7 @@ impl SendThread {
         ack_check: Arc<Mutex<AcknowledgmentCheck>>,
         ack_list: Arc<Mutex<AcknowledgmentList>>,
         send_seq: Arc<Mutex<u32>>,
+        is_empty: Arc<Mutex<bool>>,
     ) -> SendThread {
         SendThread {
             batch_queue: VecDeque::new(),
@@ -41,6 +44,7 @@ impl SendThread {
             ack_check,
             ack_list,
             send_seq,
+            is_empty,
         }
     }
 
@@ -64,16 +68,28 @@ impl SendThread {
                 }
                 None => {
                     self.fetch_window();
+                    let mut empty_lock = self.is_empty.lock().expect("Unable to lock empty bool");
+
                     // If still empty
                     if self.batch_queue.is_empty() {
+                        (*empty_lock) = true;
                         // Send a ack only packet (with empty payload)
                         self.batch_queue.push_back(self.ack_packet());
+                    } else {
+                        (*empty_lock) = false;
                     }
+
+                    drop(empty_lock);
                 }
             }
         }
 
         println!("Stopping send thread...");
+    }
+
+    pub fn is_empty(&self) -> bool {
+        let empty_lock = self.is_empty.lock().expect("Unable to lock empty bool");
+        *empty_lock
     }
 
     pub fn ack_packet(&self) -> Packet {
