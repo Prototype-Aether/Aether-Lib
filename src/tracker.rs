@@ -61,7 +61,6 @@ impl TryFrom<Vec<u8>> for TrackerPacket {
 mod tests {
 
     use crate::tracker::TrackerPacket;
-    use serde::{Deserialize, Serialize};
     use std::convert::TryFrom;
     #[test]
     fn tracker_test() {

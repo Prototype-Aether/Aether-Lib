@@ -104,13 +104,12 @@ impl SendThread {
                     self.fetch_window();
                     let mut empty_lock = self.is_empty.lock().expect("Unable to lock empty bool");
 
-                    let mut retry_delay = 0;
+                    let retry_delay = RETRY_DELAY;
                     // If still empty
                     if self.batch_queue.is_empty() {
                         (*empty_lock) = true;
                         // Send a ack only packet (with empty payload)
                         self.batch_queue.push_back(self.ack_packet());
-                        retry_delay = RETRY_DELAY;
                     } else {
                         (*empty_lock) = false;
                     }
