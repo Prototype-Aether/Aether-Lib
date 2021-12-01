@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use std::net::{IpAddr, Ipv4Addr, UdpSocket};
+    use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
     use std::thread;
     use std::time::Duration;
 
@@ -59,16 +59,20 @@ mod tests {
 
     #[test]
     pub fn handshake_test() {
-        let socket1 = UdpSocket::bind(("0.0.0.0", 0)).unwrap();
-        let socket2 = UdpSocket::bind(("0.0.0.0", 0)).unwrap();
+        let socket1 = UdpSocket::bind(("0.0.0.0", 10100)).unwrap();
+        let socket2 = UdpSocket::bind(("0.0.0.0", 10101)).unwrap();
 
-        let mut peer_addr1 = socket1.local_addr().unwrap();
-        let mut peer_addr2 = socket2.local_addr().unwrap();
-
-        peer_addr1.set_ip(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)));
-        peer_addr2.set_ip(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)));
+        let peer_addr1 = SocketAddr::new(
+            IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+            socket1.local_addr().unwrap().port(),
+        );
+        let peer_addr2 = SocketAddr::new(
+            IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+            socket2.local_addr().unwrap().port(),
+        );
 
         println!("{:?} {:?}", peer_addr1, peer_addr2);
+
         let len = 100;
 
         let send_thread = thread::spawn(move || {
