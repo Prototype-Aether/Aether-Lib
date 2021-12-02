@@ -24,6 +24,13 @@ mod tests {
         aether2.connect(String::from("alice"));
 
         aether1
+            .wait_connection(&aether2.username)
+            .expect("couldn't connect");
+        aether2
+            .wait_connection(&aether1.username)
+            .expect("couldn't connect");
+
+        aether1
             .send_to(
                 &aether2.username,
                 String::from(format!("Hello {}", aether2.username)).into_bytes(),
