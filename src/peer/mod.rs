@@ -18,10 +18,11 @@ use crate::{link::Link, tracker::ConnectionRequest};
 
 use self::handshake::handshake;
 
-pub const SERVER_RETRY_DELAY: u64 = 1000;
-pub const SERVER_POLL_TIME: u64 = 1000;
-pub const HANDSHAKE_RETRY_DELAY: u64 = 5000;
-pub const CONNECTION_CHECK_DELAY: u64 = 1000;
+pub const SERVER_RETRY_DELAY: u64 = 200;
+pub const SERVER_POLL_TIME: u64 = 200;
+pub const HANDSHAKE_RETRY_DELAY: u64 = 1000;
+pub const CONNECTION_CHECK_DELAY: u64 = 200;
+pub const DELTA_TIME: u64 = 200;
 
 pub struct Peer {
     pub username: String,
@@ -298,7 +299,7 @@ impl Aether {
                         Some(init) => {
                             // if elapsed time since last fail is greater than threshold
                             // Only then try again
-                            let delay = thread_rng().gen_range(0..1000);
+                            let delay = thread_rng().gen_range(0..DELTA_TIME);
                             if elapsed > (HANDSHAKE_RETRY_DELAY + delay).into() {
                                 let mut connect_lock = is_connecting
                                     .lock()
@@ -336,7 +337,7 @@ impl Aether {
                                         Ok(mut link) => {
                                             println!("Handshake success");
                                             link.send(username.clone().into_bytes());
-                                            let delay = thread_rng().gen_range(0..1000);
+                                            let delay = thread_rng().gen_range(0..DELTA_TIME);
                                             match link.recv_timeout(Duration::from_millis(
                                                 HANDSHAKE_RETRY_DELAY / 2 + delay,
                                             )) {
