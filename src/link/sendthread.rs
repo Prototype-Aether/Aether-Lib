@@ -54,7 +54,7 @@ impl SendThread {
     }
 
     pub fn start(&mut self) {
-        println!("Starting send thread...");
+        //println!("Starting send thread...");
         loop {
             // If stop flag is set stop the thread
             let flag_lock = self.stop_flag.lock().expect("Error locking stop flag");
@@ -131,7 +131,7 @@ impl SendThread {
             }
         }
 
-        println!("Stopping send thread...");
+        //println!("Stopping send thread...");
     }
 
     pub fn is_empty(&self) -> bool {

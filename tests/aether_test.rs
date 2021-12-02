@@ -23,6 +23,30 @@ mod tests {
 
         aether2.connect(String::from("alice"));
 
+        aether1
+            .send_to(
+                &aether2.username,
+                String::from(format!("Hello {}", aether2.username)).into_bytes(),
+            )
+            .expect("unable to send to peer");
+
+        let result = aether2
+            .recv_from(&aether1.username)
+            .expect("Unable to recv");
+        println!("Received message: {}", String::from_utf8(result).unwrap());
+
+        aether2
+            .send_to(
+                &aether1.username,
+                String::from(format!("Hello {}", aether1.username)).into_bytes(),
+            )
+            .expect("unable to send to peer");
+
+        let result = aether1
+            .recv_from(&aether2.username)
+            .expect("Unable to recv");
+        println!("Received message: {}", String::from_utf8(result).unwrap());
+
         loop {
             thread::sleep(Duration::from_secs(1));
         }

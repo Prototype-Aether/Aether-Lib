@@ -21,9 +21,9 @@ pub const SERVER_POLL_TIME: u64 = 2000;
 pub const CONNECTION_CHECK_DELAY: u64 = 1000;
 
 pub struct Peer {
-    username: String,
-    ip: [u8; 4],
-    port: u16,
+    pub username: String,
+    pub ip: [u8; 4],
+    pub port: u16,
     link: Link,
 }
 
@@ -100,14 +100,19 @@ impl Aether {
     }
 
     pub fn send_to(&self, username: &String, buf: Vec<u8>) -> Result<u8, u8> {
-        let mut peers_lock = self.peers.lock().expect("unable to lock peers list");
+        match self.wait_connection(username) {
+            Ok(_) => {
+                let mut peers_lock = self.peers.lock().expect("unable to lock peers list");
+                match (*peers_lock).get_mut(username) {
+                    Some(peer) => {
+                        peer.link.send(buf);
+                        Ok(0)
+                    }
 
-        match (*peers_lock).get_mut(username) {
-            Some(peer) => {
-                peer.link.send(buf);
-                Ok(0)
+                    None => Err(1),
+                }
             }
-            None => Err(1),
+            Err(_) => Err(1),
         }
     }
 
@@ -121,14 +126,13 @@ impl Aether {
     }
 
     pub fn wait_connection(&self, username: &String) -> Result<u8, u8> {
-        while self.is_connecting(username) {
-            thread::sleep(Duration::from_millis(CONNECTION_CHECK_DELAY));
-        }
-
-        if self.is_connected(username) {
-            Ok(0)
-        } else {
+        if !self.is_initialized(username) {
             Err(0)
+        } else {
+            while !self.is_connected(username) {
+                thread::sleep(Duration::from_millis(CONNECTION_CHECK_DELAY));
+            }
+            Ok(0)
         }
     }
 
@@ -152,6 +156,18 @@ impl Aether {
         }
     }
 
+    pub fn is_initialized(&self, username: &String) -> bool {
+        let init_lock = self
+            .initialized
+            .lock()
+            .expect("unable to lock initialized list");
+
+        match (*init_lock).get(username) {
+            Some(_) => true,
+            None => false,
+        }
+    }
+
     fn handle_initialized(&self) {
         let my_username = self.username.clone();
         let initialized = self.initialized.clone();
@@ -171,11 +187,6 @@ impl Aether {
                         req: true,
                         ..Default::default()
                     };
-
-                    println!(
-                        "Connection request: {} sending to {}",
-                        my_username, v.username
-                    );
 
                     let packet_data: Vec<u8> =
                         Vec::try_from(packet).expect("Unable to encode packet");
@@ -296,8 +307,6 @@ impl Aether {
                                                         Err(_) => String::from(""),
                                                     };
 
-                                                println!("recved: {}", recved_username);
-
                                                 if recved_username == peer_username {
                                                     let peer = Peer {
                                                         username: peer_username.clone(),
@@ -305,6 +314,7 @@ impl Aether {
                                                         port: request.port,
                                                         link,
                                                     };
+
                                                     let mut peers_lock = peers_list
                                                         .lock()
                                                         .expect("unable to lock peer list");
@@ -374,11 +384,6 @@ impl Aether {
                                         req: true,
                                         ..Default::default()
                                     };
-
-                                    println!(
-                                        "Connection request: {} sending to {}",
-                                        my_username, connection.username
-                                    );
 
                                     let packet_data: Vec<u8> =
                                         Vec::try_from(packet).expect("Unable to encode packet");
