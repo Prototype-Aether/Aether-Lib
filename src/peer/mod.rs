@@ -333,7 +333,9 @@ impl Aether {
                                         Ok(mut link) => {
                                             println!("Handshake success");
                                             link.send(username.clone().into_bytes());
-                                            println!("Sent authentication nonce");
+                                            link.set_read_timout(Duration::from_millis(
+                                                HANDSHAKE_RETRY_DELAY / 2,
+                                            ));
                                             match link.recv() {
                                                 Ok(recved) => {
                                                     println!("Received nonce");

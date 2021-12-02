@@ -10,6 +10,7 @@ mod tests {
     use aether_lib::peer::Aether;
 
     #[test]
+    #[ignore]
     pub fn aether_test() {
         let tracker_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8000);
         let aether1 = Aether::new(String::from("alice"), tracker_addr);
