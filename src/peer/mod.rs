@@ -10,6 +10,8 @@ use std::{collections::HashMap, net::SocketAddr};
 
 use std::net::{IpAddr, Ipv4Addr, UdpSocket};
 
+use rand::{thread_rng, Rng};
+
 use crate::link::POLL_TIME_US;
 use crate::tracker::TrackerPacket;
 use crate::{link::Link, tracker::ConnectionRequest};
@@ -296,7 +298,8 @@ impl Aether {
                         Some(init) => {
                             // if elapsed time since last fail is greater than threshold
                             // Only then try again
-                            if elapsed > HANDSHAKE_RETRY_DELAY.into() {
+                            let delay = thread_rng().gen_range(0..1000);
+                            if elapsed > (HANDSHAKE_RETRY_DELAY + delay).into() {
                                 let mut connect_lock = is_connecting
                                     .lock()
                                     .expect("unable to lock is connecting list");
@@ -333,8 +336,9 @@ impl Aether {
                                         Ok(mut link) => {
                                             println!("Handshake success");
                                             link.send(username.clone().into_bytes());
+                                            let delay = thread_rng().gen_range(0..1000);
                                             match link.recv_timeout(Duration::from_millis(
-                                                HANDSHAKE_RETRY_DELAY / 2,
+                                                HANDSHAKE_RETRY_DELAY / 2 + delay,
                                             )) {
                                                 Ok(recved) => {
                                                     println!("Received nonce");
