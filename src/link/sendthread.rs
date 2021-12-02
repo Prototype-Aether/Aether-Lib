@@ -68,12 +68,6 @@ impl SendThread {
                 Some(mut packet) => {
                     if packet.is_meta {
                         if !self.batch_queue.is_empty() {
-                            println!(
-                                "Queue: {} {} {}",
-                                self.batch_queue.len(),
-                                packet.meta.delay_ms,
-                                packet.meta.retry_count
-                            );
                             // If this is a meta packet check if it requires a delay
                             if packet.meta.delay_ms > 0 {
                                 thread::sleep(Duration::from_millis(packet.meta.delay_ms));
@@ -185,10 +179,6 @@ impl SendThread {
 
     pub fn send(&mut self, packet: Packet) {
         let data = packet.compile();
-
-        if packet.flags.p_type == PType::Data {
-            println!("Send {}", packet.sequence);
-        }
 
         let result = self
             .socket
