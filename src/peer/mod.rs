@@ -333,10 +333,9 @@ impl Aether {
                                         Ok(mut link) => {
                                             println!("Handshake success");
                                             link.send(username.clone().into_bytes());
-                                            link.set_read_timout(Duration::from_millis(
+                                            match link.recv_timeout(Duration::from_millis(
                                                 HANDSHAKE_RETRY_DELAY / 2,
-                                            ));
-                                            match link.recv() {
+                                            )) {
                                                 Ok(recved) => {
                                                     println!("Received nonce");
                                                     let recved_username =

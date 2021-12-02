@@ -161,6 +161,40 @@ impl Link {
         self.read_timeout = Some(timeout);
     }
 
+    pub fn recv_timeout(&mut self, timeout: Duration) -> Result<Vec<u8>, u8> {
+        let flag_lock = self.stop_flag.lock().expect("Error locking stop flag");
+        let stop = *flag_lock;
+        drop(flag_lock);
+
+        let now = SystemTime::now();
+
+        if stop {
+            Err(255)
+        } else {
+            // Pop the next packet from output queue
+            loop {
+                let elapsed = now.elapsed().expect("unable to get system time");
+                if elapsed > timeout {
+                    break Err(255);
+                }
+
+                let mut queue_lock = self.output_queue.lock().expect("Cannot lock output queue");
+
+                let result = queue_lock.pop_front();
+
+                drop(queue_lock);
+
+                // Get payload out of the packet and return
+                match result {
+                    Some(packet) => break Ok(packet.payload),
+                    None => {
+                        thread::sleep(Duration::from_micros(POLL_TIME_US));
+                    }
+                };
+            }
+        }
+    }
+
     pub fn recv(&mut self) -> Result<Vec<u8>, u8> {
         let flag_lock = self.stop_flag.lock().expect("Error locking stop flag");
         let stop = *flag_lock;
