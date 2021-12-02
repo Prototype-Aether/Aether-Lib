@@ -68,6 +68,7 @@ impl Aether {
     }
 
     pub fn start(&self) {
+        println!("Starting aether service...");
         self.connection_poll();
         self.handle_initialized();
         self.handle_requests();
