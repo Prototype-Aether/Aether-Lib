@@ -177,6 +177,7 @@ impl Link {
                         thread::sleep(Duration::from_micros(POLL_TIME_US));
                     }
                 };
+                println!("waiting...");
             }
         }
     }
