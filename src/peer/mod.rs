@@ -85,7 +85,7 @@ impl Aether {
 
         if !is_connected {
             let mut id_lock = self.id_number.lock().expect("unable to lock id number");
-            (*id_lock) += 1;
+            (*id_lock) = 1;
             let id_number = *id_lock;
 
             let mut initialized_lock = self
@@ -424,7 +424,7 @@ impl Aether {
                                 if !is_connected {
                                     let mut id_lock =
                                         id_number.lock().expect("unable to lock id number");
-                                    (*id_lock) += 1;
+                                    (*id_lock) = 1;
                                     let id_number = *id_lock;
 
                                     drop(id_lock);
