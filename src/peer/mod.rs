@@ -341,6 +341,7 @@ impl Aether {
                                                         };
 
                                                     if recved_username == peer_username {
+                                                        println!("Authenticated");
                                                         let peer = Peer {
                                                             username: peer_username.clone(),
                                                             ip: peer_octets,
@@ -357,6 +358,8 @@ impl Aether {
                                                         (*peers_lock)
                                                             .insert(peer_username.clone(), peer);
                                                         success = true;
+                                                    } else {
+                                                        println!("Authentication failed");
                                                     }
                                                 }
                                                 Err(255) => (),
