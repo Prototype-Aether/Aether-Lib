@@ -333,6 +333,7 @@ impl Aether {
                                         Ok(mut link) => {
                                             println!("Handshake success");
                                             link.send(username.clone().into_bytes());
+                                            println!("Sent authentication nonce");
                                             match link.recv() {
                                                 Ok(recved) => {
                                                     let recved_username =
