@@ -362,7 +362,9 @@ impl Aether {
                                                         println!("Authentication failed");
                                                     }
                                                 }
-                                                Err(255) => (),
+                                                Err(255) => {
+                                                    println!("Authentication failed")
+                                                }
                                                 _ => panic!("Unexpected error"),
                                             }
                                         }
