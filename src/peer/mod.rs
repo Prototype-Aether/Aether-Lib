@@ -336,6 +336,7 @@ impl Aether {
                                             println!("Sent authentication nonce");
                                             match link.recv() {
                                                 Ok(recved) => {
+                                                    println!("Received nonce");
                                                     let recved_username =
                                                         match String::from_utf8(recved) {
                                                             Ok(name) => name,
