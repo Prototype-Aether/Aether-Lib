@@ -22,6 +22,8 @@ pub fn handshake(
 
     let ack: bool;
 
+    //println!("Handshake {} {:?} to {:?}", my_username, socket, address);
+
     socket
         .set_read_timeout(Some(Duration::from_millis(INITIATE_DELAY)))
         .expect("Unable to set read timeout");
@@ -83,7 +85,7 @@ pub fn handshake(
             let elapsed = now.elapsed().expect("Unable to get system time");
 
             if elapsed.as_millis() > HANDSHAKE_TIMEOUT.into() {
-                return Err(255);
+                return Err(254);
             }
 
             socket

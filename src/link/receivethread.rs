@@ -40,7 +40,6 @@ impl OrderList {
                 match self.list.remove(&(self.seq + 1)) {
                     Some(n_packet) => {
                         self.seq += 1;
-                        //println!("Next {}", self.seq);
                         result.push_back(n_packet);
                     }
                     None => break Ok(result),
@@ -95,7 +94,7 @@ impl ReceiveThread {
 
     pub fn start(&mut self) {
         let mut buf = [0; 512];
-        println!("Starting receive thread...");
+        //println!("Starting receive thread...");
         let mut now = SystemTime::now();
         loop {
             // If stop flag is set stop the thread
@@ -120,7 +119,6 @@ impl ReceiveThread {
             if size > 0 {
                 now = SystemTime::now();
                 let packet = Packet::from(buf[..size].to_vec());
-                //println!("Result: {:?}", packet);
                 let exists = self.check_ack(&packet);
                 self.recv_ack(&packet);
                 self.send_ack(&packet);
@@ -135,7 +133,7 @@ impl ReceiveThread {
                 }
             }
         }
-        println!("Stopping receive thread...");
+        //println!("Stopping receive thread...");
     }
 
     fn check_ack(&self, packet: &Packet) -> bool {

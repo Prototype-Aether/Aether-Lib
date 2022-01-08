@@ -54,7 +54,7 @@ impl SendThread {
     }
 
     pub fn start(&mut self) {
-        println!("Starting send thread...");
+        //println!("Starting send thread...");
         loop {
             // If stop flag is set stop the thread
             let flag_lock = self.stop_flag.lock().expect("Error locking stop flag");
@@ -68,12 +68,6 @@ impl SendThread {
                 Some(mut packet) => {
                     if packet.is_meta {
                         if !self.batch_queue.is_empty() {
-                            println!(
-                                "Queue: {} {} {}",
-                                self.batch_queue.len(),
-                                packet.meta.delay_ms,
-                                packet.meta.retry_count
-                            );
                             // If this is a meta packet check if it requires a delay
                             if packet.meta.delay_ms > 0 {
                                 thread::sleep(Duration::from_millis(packet.meta.delay_ms));
@@ -137,7 +131,7 @@ impl SendThread {
             }
         }
 
-        println!("Stopping send thread...");
+        //println!("Stopping send thread...");
     }
 
     pub fn is_empty(&self) -> bool {
@@ -185,10 +179,6 @@ impl SendThread {
 
     pub fn send(&mut self, packet: Packet) {
         let data = packet.compile();
-
-        if packet.flags.p_type == PType::Data {
-            println!("Send {}", packet.sequence);
-        }
 
         let result = self
             .socket
