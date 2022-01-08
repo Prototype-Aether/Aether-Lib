@@ -1,4 +1,4 @@
-use crate::acknowledgment::Acknowledgment;
+use crate::acknowledgement::Acknowledgement;
 use crate::util::compile_u32;
 
 use std::convert::From;
@@ -72,7 +72,7 @@ pub struct PacketMeta {
 pub struct Packet {
     pub flags: PacketFlags,
     pub sequence: u32,
-    pub ack: Acknowledgment,
+    pub ack: Acknowledgement,
     pub payload: Vec<u8>,
     pub is_meta: bool,
     pub meta: PacketMeta,
@@ -93,7 +93,7 @@ impl Packet {
                 enc: false,
             },
             sequence,
-            ack: Acknowledgment {
+            ack: Acknowledgement {
                 ack_begin: 0,
                 ack_end: 0,
                 miss_count: 0,
@@ -117,8 +117,8 @@ impl Packet {
     ///
     /// # Arguments
     ///
-    /// * `ack`    -   A Acknowledgment struct
-    pub fn add_ack(&mut self, ack: Acknowledgment) {
+    /// * `ack`    -   A Acknowledgement struct
+    pub fn add_ack(&mut self, ack: Acknowledgement) {
         self.ack = ack;
         self.flags.ack = true;
     }
@@ -198,7 +198,7 @@ impl From<Vec<u8>> for Packet {
                 enc: false,
             },
             sequence: 0,
-            ack: Acknowledgment {
+            ack: Acknowledgement {
                 ack_begin: 0,
                 ack_end: 0,
                 miss_count: 0,
@@ -250,7 +250,7 @@ impl From<Vec<u8>> for Packet {
 #[cfg(test)]
 mod tests {
     use crate::packet::PType;
-    use crate::{acknowledgment::AcknowledgmentList, packet};
+    use crate::{acknowledgement::AcknowledgementList, packet};
 
     #[test]
     fn range_test() {
@@ -262,7 +262,7 @@ mod tests {
     #[test]
     fn compile_test() {
         let mut pack = packet::Packet::new(PType::Data, 32850943);
-        let mut ack_list = AcknowledgmentList::new(329965);
+        let mut ack_list = AcknowledgementList::new(329965);
         ack_list.insert(329966);
         ack_list.insert(329967);
         ack_list.insert(329969);

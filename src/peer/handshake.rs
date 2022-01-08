@@ -3,7 +3,7 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use crate::{acknowledgment::Acknowledgment, packet::Packet};
+use crate::{acknowledgement::Acknowledgement, packet::Packet};
 use crate::{link::Link, packet::PType};
 
 use rand::{thread_rng, Rng};
@@ -71,7 +71,7 @@ pub fn handshake(
 
     // If not acknowledged by other peer yet
     if !ack {
-        packet.add_ack(Acknowledgment {
+        packet.add_ack(Acknowledgement {
             ack_begin: recv_seq,
             ack_end: 0,
             miss_count: 0,

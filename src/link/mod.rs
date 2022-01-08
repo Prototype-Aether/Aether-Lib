@@ -11,7 +11,7 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 use std::time::SystemTime;
 
-use crate::acknowledgment::{AcknowledgmentCheck, AcknowledgmentList};
+use crate::acknowledgement::{AcknowledgementCheck, AcknowledgementList};
 use crate::link::receivethread::ReceiveThread;
 use crate::link::sendthread::SendThread;
 use crate::packet::PType;
@@ -33,8 +33,8 @@ pub fn needs_ack(packet: &Packet) -> bool {
 }
 
 pub struct Link {
-    ack_list: Arc<Mutex<AcknowledgmentList>>,
-    ack_check: Arc<Mutex<AcknowledgmentCheck>>,
+    ack_list: Arc<Mutex<AcknowledgementList>>,
+    ack_check: Arc<Mutex<AcknowledgementCheck>>,
     socket: Arc<UdpSocket>,
     peer_addr: SocketAddr,
     primary_queue: Arc<Mutex<VecDeque<Packet>>>,
@@ -60,8 +60,8 @@ impl Link {
         let stop_flag = Arc::new(Mutex::new(false));
         let batch_empty = Arc::new(Mutex::new(false));
         Link {
-            ack_list: Arc::new(Mutex::new(AcknowledgmentList::new(recv_seq))),
-            ack_check: Arc::new(Mutex::new(AcknowledgmentCheck::new(send_seq))),
+            ack_list: Arc::new(Mutex::new(AcknowledgementList::new(recv_seq))),
+            ack_check: Arc::new(Mutex::new(AcknowledgementCheck::new(send_seq))),
             peer_addr,
             socket,
             primary_queue,
