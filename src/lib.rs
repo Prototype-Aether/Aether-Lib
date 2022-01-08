@@ -1,6 +1,6 @@
 //! A library that provides P2P communication for Prototype Aether.
 
-pub mod acknowledgment;
+pub mod acknowledgement;
 pub mod link;
 pub mod packet;
 pub mod peer;

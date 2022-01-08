@@ -6,7 +6,7 @@ use std::sync::Mutex;
 use std::thread;
 use std::time::Duration;
 
-use crate::acknowledgment::{AcknowledgmentCheck, AcknowledgmentList};
+use crate::acknowledgement::{AcknowledgementCheck, AcknowledgementList};
 use crate::link::MAX_RETRIES;
 use crate::link::RETRY_DELAY;
 use crate::link::{needs_ack, WINDOW_SIZE};
@@ -23,8 +23,8 @@ pub struct SendThread {
 
     is_empty: Arc<Mutex<bool>>,
 
-    ack_list: Arc<Mutex<AcknowledgmentList>>,
-    ack_check: Arc<Mutex<AcknowledgmentCheck>>,
+    ack_list: Arc<Mutex<AcknowledgementList>>,
+    ack_check: Arc<Mutex<AcknowledgementCheck>>,
 
     send_seq: Arc<Mutex<u32>>,
 }
@@ -35,8 +35,8 @@ impl SendThread {
         peer_addr: SocketAddr,
         primary_queue: Arc<Mutex<VecDeque<Packet>>>,
         stop_flag: Arc<Mutex<bool>>,
-        ack_check: Arc<Mutex<AcknowledgmentCheck>>,
-        ack_list: Arc<Mutex<AcknowledgmentList>>,
+        ack_check: Arc<Mutex<AcknowledgementCheck>>,
+        ack_list: Arc<Mutex<AcknowledgementList>>,
         send_seq: Arc<Mutex<u32>>,
         is_empty: Arc<Mutex<bool>>,
     ) -> SendThread {

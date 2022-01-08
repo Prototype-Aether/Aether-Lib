@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::SystemTime;
 
-use crate::acknowledgment::{AcknowledgmentCheck, AcknowledgmentList};
+use crate::acknowledgement::{AcknowledgementCheck, AcknowledgementList};
 use crate::link::needs_ack;
 use crate::link::TIMEOUT;
 use crate::packet::PType;
@@ -57,8 +57,8 @@ pub struct ReceiveThread {
     output_queue: Arc<Mutex<VecDeque<Packet>>>,
     stop_flag: Arc<Mutex<bool>>,
 
-    ack_list: Arc<Mutex<AcknowledgmentList>>,
-    ack_check: Arc<Mutex<AcknowledgmentCheck>>,
+    ack_list: Arc<Mutex<AcknowledgementList>>,
+    ack_check: Arc<Mutex<AcknowledgementCheck>>,
 
     order_list: OrderList,
 
@@ -71,8 +71,8 @@ impl ReceiveThread {
         peer_addr: SocketAddr,
         output_queue: Arc<Mutex<VecDeque<Packet>>>,
         stop_flag: Arc<Mutex<bool>>,
-        ack_check: Arc<Mutex<AcknowledgmentCheck>>,
-        ack_list: Arc<Mutex<AcknowledgmentList>>,
+        ack_check: Arc<Mutex<AcknowledgementCheck>>,
+        ack_list: Arc<Mutex<AcknowledgementList>>,
         recv_seq: Arc<Mutex<u32>>,
     ) -> ReceiveThread {
         let recv_lock = recv_seq.lock().expect("Unable to lock recv_seq");
