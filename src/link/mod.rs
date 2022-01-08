@@ -9,6 +9,7 @@ use std::sync::Mutex;
 use std::thread;
 use std::thread::JoinHandle;
 use std::time::Duration;
+use std::time::SystemTime;
 
 use crate::acknowledgment::{AcknowledgmentCheck, AcknowledgmentList};
 use crate::link::receivethread::ReceiveThread;
@@ -17,6 +18,11 @@ use crate::packet::PType;
 use crate::packet::Packet;
 
 pub const WINDOW_SIZE: u8 = 20;
+pub const ACK_WAIT_TIME: u64 = 1000;
+pub const POLL_TIME_US: u64 = 100;
+pub const TIMEOUT: u64 = 10_000;
+pub const RETRY_DELAY: u64 = 100;
+pub const MAX_RETRIES: i16 = 10;
 
 pub fn needs_ack(packet: &Packet) -> bool {
     match packet.flags.p_type {
@@ -37,6 +43,8 @@ pub struct Link {
     send_seq: Arc<Mutex<u32>>,
     recv_seq: Arc<Mutex<u32>>,
     stop_flag: Arc<Mutex<bool>>,
+    batch_empty: Arc<Mutex<bool>>,
+    read_timeout: Option<Duration>,
 }
 
 impl Link {
@@ -50,6 +58,7 @@ impl Link {
         let output_queue = Arc::new(Mutex::new(VecDeque::new()));
 
         let stop_flag = Arc::new(Mutex::new(false));
+        let batch_empty = Arc::new(Mutex::new(false));
         Link {
             ack_list: Arc::new(Mutex::new(AcknowledgmentList::new(recv_seq))),
             ack_check: Arc::new(Mutex::new(AcknowledgmentCheck::new(send_seq))),
@@ -61,6 +70,8 @@ impl Link {
             recv_seq: Arc::new(Mutex::new(recv_seq)),
             thread_handles: Vec::new(),
             stop_flag,
+            batch_empty,
+            read_timeout: None,
         }
     }
 
@@ -74,6 +85,7 @@ impl Link {
             self.ack_check.clone(),
             self.ack_list.clone(),
             self.send_seq.clone(),
+            self.batch_empty.clone(),
         );
 
         // Start the send thread
@@ -145,22 +157,100 @@ impl Link {
         (*queue_lock).push_back(packet);
     }
 
-    pub fn recv(&mut self) -> Result<Vec<u8>, u8> {
-        // Pop the next packet from output queue
-        loop {
-            let mut queue_lock = self.output_queue.lock().expect("Cannot lock output queue");
+    pub fn set_read_timout(&mut self, timeout: Duration) {
+        self.read_timeout = Some(timeout);
+    }
 
-            let result = queue_lock.pop_front();
+    pub fn recv_timeout(&mut self, timeout: Duration) -> Result<Vec<u8>, u8> {
+        let flag_lock = self.stop_flag.lock().expect("Error locking stop flag");
+        let stop = *flag_lock;
+        drop(flag_lock);
 
-            drop(queue_lock);
+        let now = SystemTime::now();
 
-            // Get payload out of the packet and return
-            match result {
-                Some(packet) => break Ok(packet.payload),
-                None => {
-                    thread::sleep(Duration::from_micros(100));
+        if stop {
+            Err(255)
+        } else {
+            // Pop the next packet from output queue
+            loop {
+                let elapsed = now.elapsed().expect("unable to get system time");
+                if elapsed > timeout {
+                    break Err(255);
                 }
-            };
+
+                let mut queue_lock = self.output_queue.lock().expect("Cannot lock output queue");
+
+                let result = queue_lock.pop_front();
+
+                drop(queue_lock);
+
+                // Get payload out of the packet and return
+                match result {
+                    Some(packet) => break Ok(packet.payload),
+                    None => {
+                        thread::sleep(Duration::from_micros(POLL_TIME_US));
+                    }
+                };
+            }
+        }
+    }
+
+    pub fn recv(&mut self) -> Result<Vec<u8>, u8> {
+        let flag_lock = self.stop_flag.lock().expect("Error locking stop flag");
+        let stop = *flag_lock;
+        drop(flag_lock);
+
+        let now = SystemTime::now();
+
+        if stop {
+            Err(255)
+        } else {
+            // Pop the next packet from output queue
+            loop {
+                match self.read_timeout {
+                    Some(time) => {
+                        let elapsed = now.elapsed().expect("unable to get system time");
+                        if elapsed > time {
+                            break Err(255);
+                        }
+                    }
+                    None => (),
+                }
+
+                let mut queue_lock = self.output_queue.lock().expect("Cannot lock output queue");
+
+                let result = queue_lock.pop_front();
+
+                drop(queue_lock);
+
+                // Get payload out of the packet and return
+                match result {
+                    Some(packet) => break Ok(packet.payload),
+                    None => {
+                        thread::sleep(Duration::from_micros(POLL_TIME_US));
+                    }
+                };
+            }
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        let queue_lock = self.output_queue.lock().expect("Cannot lock output queue");
+        let result = (*queue_lock).is_empty();
+        drop(queue_lock);
+
+        let batch_lock = self.batch_empty.lock().expect("Cannot lock batch queue");
+
+        result && (*batch_lock)
+    }
+
+    pub fn wait(&self) {
+        loop {
+            if self.is_empty() {
+                thread::sleep(Duration::from_millis(ACK_WAIT_TIME));
+                break;
+            }
+            thread::sleep(Duration::from_micros(POLL_TIME_US));
         }
     }
 }

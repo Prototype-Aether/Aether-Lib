@@ -1,13 +1,15 @@
-use rand::{thread_rng, Rng};
+//use rand::{thread_rng, Rng};
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::net::SocketAddr;
 use std::net::UdpSocket;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::time::SystemTime;
 
 use crate::acknowledgment::{AcknowledgmentCheck, AcknowledgmentList};
 use crate::link::needs_ack;
+use crate::link::TIMEOUT;
 use crate::packet::PType;
 use crate::packet::Packet;
 
@@ -38,7 +40,6 @@ impl OrderList {
                 match self.list.remove(&(self.seq + 1)) {
                     Some(n_packet) => {
                         self.seq += 1;
-                        //println!("Next {}", self.seq);
                         result.push_back(n_packet);
                     }
                     None => break Ok(result),
@@ -93,7 +94,8 @@ impl ReceiveThread {
 
     pub fn start(&mut self) {
         let mut buf = [0; 512];
-        println!("Starting receive thread...");
+        //println!("Starting receive thread...");
+        let mut now = SystemTime::now();
         loop {
             // If stop flag is set stop the thread
             let flag_lock = self.stop_flag.lock().expect("Error locking stop flag");
@@ -115,17 +117,23 @@ impl ReceiveThread {
             };
 
             if size > 0 {
+                now = SystemTime::now();
                 let packet = Packet::from(buf[..size].to_vec());
-                //println!("Result: {:?}", packet);
                 let exists = self.check_ack(&packet);
                 self.recv_ack(&packet);
                 self.send_ack(&packet);
                 if !exists {
                     self.output(packet);
                 }
+            } else {
+                let elapsed = now.elapsed().expect("unable to get system time");
+                if elapsed.as_millis() > TIMEOUT.into() {
+                    let mut flag_lock = self.stop_flag.lock().expect("Error locking stop flag");
+                    *flag_lock = true;
+                }
             }
         }
-        println!("Stopping receive thread...");
+        //println!("Stopping receive thread...");
     }
 
     fn check_ack(&self, packet: &Packet) -> bool {

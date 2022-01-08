@@ -9,6 +9,7 @@ use std::vec::Vec;
 pub enum PType {
     Data,
     AckOnly,
+    Initiation,
     Extended,
 }
 
@@ -17,6 +18,7 @@ impl From<PType> for u8 {
         match p_type {
             PType::Data => 0,
             PType::AckOnly => 1,
+            PType::Initiation => 2,
             PType::Extended => 15,
         }
     }
@@ -27,6 +29,7 @@ impl From<u8> for PType {
         match Option::from(p_type) {
             Some(0) => PType::Data,
             Some(1) => PType::AckOnly,
+            Some(2) => PType::Initiation,
             _ => PType::Extended,
         }
     }
@@ -60,11 +63,19 @@ impl PacketFlags {
 }
 
 #[derive(Debug)]
+pub struct PacketMeta {
+    pub delay_ms: u64,
+    pub retry_count: i16,
+}
+
+#[derive(Debug)]
 pub struct Packet {
     pub flags: PacketFlags,
     pub sequence: u32,
     pub ack: Acknowledgment,
     pub payload: Vec<u8>,
+    pub is_meta: bool,
+    pub meta: PacketMeta,
 }
 
 impl Packet {
@@ -89,8 +100,19 @@ impl Packet {
                 miss: Vec::new(),
             },
             payload: Vec::new(),
+            is_meta: false,
+            meta: PacketMeta {
+                delay_ms: 0,
+                retry_count: 0,
+            },
         }
     }
+
+    pub fn set_meta(&mut self, meta: PacketMeta) {
+        self.is_meta = true;
+        self.meta = meta;
+    }
+
     /// Add ack struct into the packet
     ///
     /// # Arguments
@@ -183,6 +205,11 @@ impl From<Vec<u8>> for Packet {
                 miss: Vec::new(),
             },
             payload: Vec::new(),
+            is_meta: false,
+            meta: PacketMeta {
+                delay_ms: 0,
+                retry_count: 0,
+            },
         };
 
         // Packet ID converting u8 to u32(vector)
@@ -218,15 +245,6 @@ impl From<Vec<u8>> for Packet {
 
         packet_default
     }
-}
-
-pub struct TrackerPacket {
-    _username: String,
-    _id_num: u32,
-    _req: bool,
-    _packet_type: u8,
-    _port: u16,
-    _ip: [u8; 4],
 }
 
 #[cfg(test)]
