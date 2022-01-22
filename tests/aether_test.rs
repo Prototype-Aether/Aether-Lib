@@ -3,14 +3,27 @@ mod tests {
 
     use std::{
         net::{IpAddr, Ipv4Addr, SocketAddr},
+        process::Command,
         thread,
-        time::Duration,
     };
 
     use aether_lib::peer::Aether;
 
     #[test]
     pub fn aether_test() {
+        // Run the tracker server
+        thread::spawn(|| {
+            let output = Command::new("sh")
+                .arg("-c")
+                .arg("rm -rf tmp && mkdir -p tmp && cd tmp && git clone https://github.com/Prototype-Aether/Aether-Tracker.git && cd Aether-Tracker && cargo run --bin server 8000")
+                .output()
+                .expect("Unable to start tracker server");
+            println!(
+                "{}",
+                String::from_utf8(output.stdout).expect("unable to get output of command")
+            );
+        });
+
         let tracker_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8000);
         let aether1 = Aether::new(String::from("alice"), tracker_addr);
 
