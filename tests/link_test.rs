@@ -58,8 +58,8 @@ mod tests {
 
     #[test]
     pub fn handshake_test() {
-        let socket1 = UdpSocket::bind(("0.0.0.0", 10100)).unwrap();
-        let socket2 = UdpSocket::bind(("0.0.0.0", 10101)).unwrap();
+        let socket1 = UdpSocket::bind(("0.0.0.0", 0)).unwrap();
+        let socket2 = UdpSocket::bind(("0.0.0.0", 0)).unwrap();
 
         let peer_addr1 = SocketAddr::new(
             IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
