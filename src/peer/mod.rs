@@ -334,7 +334,7 @@ impl Aether {
                                     );
 
                                     match link_result {
-                                        Ok(mut link) => {
+                                        Ok(link) => {
                                             println!("Handshake success");
                                             link.send(username.clone().into_bytes());
                                             let delay = thread_rng().gen_range(0..DELTA_TIME);
