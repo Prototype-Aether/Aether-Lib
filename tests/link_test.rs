@@ -77,7 +77,7 @@ mod tests {
         let len = 100;
 
         let send_thread = thread::spawn(move || {
-            let mut link = handshake(
+            let link = handshake(
                 socket1,
                 peer_addr2,
                 String::from("peer1"),
@@ -102,7 +102,7 @@ mod tests {
         });
 
         let recv_thread = thread::spawn(move || {
-            let mut link = handshake(
+            let link = handshake(
                 socket2,
                 peer_addr1,
                 String::from("peer2"),
