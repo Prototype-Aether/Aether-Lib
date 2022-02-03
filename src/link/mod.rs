@@ -173,7 +173,12 @@ impl Link {
         } else {
             // Pop the next packet from output queue
             loop {
-                let elapsed = now.elapsed().expect("unable to get system time");
+                // let elapsed = now.elapsed().expect("unable to get system time");
+                let elapsed = match now.elapsed() {
+                    Ok(elapsed) => elapsed,
+                    Err(error) => panic!("Error 100: {:?}", error),
+                };
+
                 if elapsed > timeout {
                     break Err(255);
                 }
