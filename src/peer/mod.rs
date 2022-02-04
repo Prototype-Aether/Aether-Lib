@@ -94,6 +94,7 @@ impl Aether {
 
     pub fn start(&self) {
         println!("Starting aether service...");
+        println!("Failure fix");
         self.connection_poll();
         self.handle_sockets();
         self.handle_requests();
