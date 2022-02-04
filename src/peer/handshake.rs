@@ -22,8 +22,6 @@ pub fn handshake(
 
     let ack: bool;
 
-    //println!("Handshake {} {:?} to {:?}", my_username, socket, address);
-
     socket
         .set_read_timeout(Some(Duration::from_millis(INITIATE_DELAY)))
         .expect("Unable to set read timeout");

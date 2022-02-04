@@ -24,6 +24,7 @@ pub const CONNECTION_CHECK_DELAY: u64 = 1000;
 pub const DELTA_TIME: u64 = 100;
 pub const POLL_TIME_US: u64 = 100;
 
+#[derive(Debug)]
 pub enum Connection {
     Init(Initialized),
     Handshake,
@@ -31,6 +32,7 @@ pub enum Connection {
     Failed(Failure),
 }
 
+#[derive(Debug)]
 pub struct Peer {
     pub username: String,
     pub ip: [u8; 4],
@@ -46,8 +48,21 @@ pub struct Initialized {
     identity_number: u32,
 }
 
+impl Initialized {
+    pub fn new(username: String) -> Initialized {
+        Initialized {
+            username,
+            socket: UdpSocket::bind(("0.0.0.0", 0)).expect("unable to create socket"),
+            identity_number: 1,
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct Failure {
     time: SystemTime,
+    socket: UdpSocket,
+    username: String,
 }
 
 /// [`Aether`] is an interface used to connect to other peers as well as communicate
@@ -82,7 +97,7 @@ impl Aether {
     pub fn start(&self) {
         println!("Starting aether service...");
         self.connection_poll();
-        self.handle_initialized();
+        self.handle_sockets();
         self.handle_requests();
     }
 
@@ -95,11 +110,7 @@ impl Aether {
         };
 
         if !is_present {
-            let initialized = Initialized {
-                identity_number: 1,
-                socket: UdpSocket::bind(("0.0.0.0", 0)).expect("unable to create socket"),
-                username: username.clone(),
-            };
+            let initialized = Initialized::new(username.clone());
 
             (*connections_lock).insert(username, Connection::Init(initialized));
         }
@@ -195,7 +206,7 @@ impl Aether {
         }
     }
 
-    fn handle_initialized(&self) {
+    fn handle_sockets(&self) {
         let my_username = self.username.clone();
         let connections = self.connections.clone();
         let tracker_addr = self.tracker_addr.clone();
@@ -206,24 +217,25 @@ impl Aether {
 
                 // For each connection
                 for (_, connection) in (*connections_lock).iter() {
-                    // If connection is in initialized stage send connection request
-                    if let Connection::Init(v) = connection {
-                        let packet = TrackerPacket {
-                            username: my_username.clone(),
-                            peer_username: v.username.clone(),
-                            identity_number: v.identity_number,
-                            packet_type: 2,
-                            req: true,
-                            ..Default::default()
-                        };
-
-                        let packet_data: Vec<u8> =
-                            Vec::try_from(packet).expect("Unable to encode packet");
-
-                        v.socket
-                            .send_to(&packet_data, tracker_addr)
-                            .expect("unable to send packet to server");
-                    }
+                    // If connection is in initialized or failed state, send connection
+                    // request
+                    match connection {
+                        Connection::Init(init) => {
+                            Self::send_connection_request(
+                                my_username.clone(),
+                                init.username.clone(),
+                                &init.socket,
+                                tracker_addr,
+                            );
+                        }
+                        Connection::Failed(failed) => Self::send_connection_request(
+                            my_username.clone(),
+                            failed.username.clone(),
+                            &failed.socket,
+                            tracker_addr,
+                        ),
+                        _ => {}
+                    };
                 }
 
                 // Unlock initailized list
@@ -231,6 +243,28 @@ impl Aether {
                 thread::sleep(Duration::from_millis(SERVER_POLL_TIME));
             }
         });
+    }
+
+    fn send_connection_request(
+        username: String,
+        peer_username: String,
+        socket: &UdpSocket,
+        tracker_addr: SocketAddr,
+    ) {
+        let packet = TrackerPacket {
+            username,
+            peer_username,
+            identity_number: 1,
+            packet_type: 2,
+            req: true,
+            ..Default::default()
+        };
+
+        let packet_data: Vec<u8> = Vec::try_from(packet).expect("Unable to encode packet");
+
+        socket
+            .send_to(&packet_data, tracker_addr)
+            .expect("unable to send packet to server");
     }
 
     fn connection_poll(&self) {
@@ -262,8 +296,6 @@ impl Aether {
             if !response_data.is_empty() {
                 let response_packet =
                     TrackerPacket::try_from(response_data).expect("Unable to decode packet");
-
-                //println!("{:?}", response_packet.connections);
 
                 for v in response_packet.connections {
                     let mut req_lock = requests.lock().expect("unable to lock request queue");
@@ -310,37 +342,21 @@ fn handle_request(
     req_lock: &mut MutexGuard<VecDeque<ConnectionRequest>>,
 ) {
     let mut connections_lock = connections.lock().expect("unable to lock failed list");
-    // Check if a conection has failed before
-    // Assign elapsed time since last failed attempt based on this
-    let elapsed = match (*connections_lock).get(&request.username) {
-        Some(connection) => match connection {
-            Connection::Failed(failed) => failed
-                .time
-                .elapsed()
-                .expect("unable to get system time")
-                .as_millis(),
-            // If not failed before elapsed time is infinite
-            _ => u128::MAX,
-        },
-        None => u128::MAX,
-    };
 
-    //drop(failed_lock);
-
-    // Check if already been initialized
+    // Check if connection exists in connection list
     match (*connections_lock).remove(&request.username) {
-        Some(connection) => match connection {
-            // If initialized, start handshake
-            // Initailized either since connection request was made by us first
-            // Or initailized after receiving connection request from other peer
-            Connection::Init(init) => {
-                // if elapsed time since last fail is greater than threshold
-                // Only then try again
-                let delay = thread_rng().gen_range(0..DELTA_TIME);
-                if elapsed > (HANDSHAKE_RETRY_DELAY + delay).into() {
+        Some(connection) => {
+            match connection {
+                // If initialized, start handshake
+                // Initailized either since connection request was made by us first
+                // Or initailized after receiving connection request from other peer
+                Connection::Init(init) => {
                     // Clone important data to pass to handshake thread
                     let connections_clone = connections.clone();
                     let my_username_clone = my_username.clone();
+
+                    // Put current user in handshake state
+                    (*connections_lock).insert(init.username.clone(), Connection::Handshake);
 
                     // Create a thread to start handshake and establish connection
                     thread::spawn(move || {
@@ -383,6 +399,7 @@ fn handle_request(
                                             Err(_) => String::from(""),
                                         };
 
+                                        // If correct authentication
                                         if recved_username == peer_username {
                                             println!("Authenticated");
 
@@ -399,7 +416,8 @@ fn handle_request(
                                                 .lock()
                                                 .expect("unable to lock peer list");
 
-                                            // Add connected peer to list
+                                            // Add connected peer to connections list
+                                            // with connected state
                                             (*connections_lock).insert(
                                                 peer_username.clone(),
                                                 Connection::Connected(peer),
@@ -425,21 +443,51 @@ fn handle_request(
                             let mut connections_lock =
                                 connections_clone.lock().expect("unable to lock peer list");
 
-                            // Add connected peer to list
+                            // Add failure entry to connection list
                             (*connections_lock).insert(
                                 peer_username.clone(),
                                 Connection::Failed(Failure {
                                     time: SystemTime::now(),
+                                    socket: UdpSocket::bind(("0.0.0.0", 0))
+                                        .expect("unable to create socket"),
+                                    username: peer_username.clone(),
                                 }),
                             );
                         }
                     });
-                } else {
-                    (*connections_lock).insert(init.username.clone(), Connection::Init(init));
+                }
+                Connection::Failed(failed) => {
+                    let delta = thread_rng().gen_range(0..DELTA_TIME);
+                    let elapsed = failed
+                        .time
+                        .elapsed()
+                        .expect("unable to get system time")
+                        .as_millis();
+
+                    // if elapsed time since the fail is greater than threshold
+                    // then put back in initialized state
+                    if elapsed > (HANDSHAKE_RETRY_DELAY + delta).into() {
+                        (*connections_lock).insert(
+                            failed.username.clone(),
+                            Connection::Init(Initialized {
+                                username: failed.username,
+                                socket: failed.socket,
+                                identity_number: 1,
+                            }),
+                        );
+                    } else {
+                        // If elapsed time is not long enough
+                        // insert back into the list
+                        (*connections_lock)
+                            .insert(failed.username.clone(), Connection::Failed(failed));
+                    }
+                }
+                other => {
+                    // If in other state, insert back the value
+                    (*connections_lock).insert(request.username.clone(), other);
                 }
             }
-            _ => {}
-        },
+        }
         // If not in connections (other peer is initiator)
         // Initailize the request
         None => {
@@ -466,6 +514,7 @@ fn handle_request(
                 .send_to(&packet_data, tracker_addr)
                 .expect("unable to send packet to server");
 
+            // Insert new initialized connection
             (*connections_lock).insert(request.username.clone(), Connection::Init(connection));
 
             (*req_lock).push_back(request);
