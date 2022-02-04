@@ -24,7 +24,6 @@ pub const CONNECTION_CHECK_DELAY: u64 = 1000;
 pub const DELTA_TIME: u64 = 100;
 pub const POLL_TIME_US: u64 = 100;
 
-#[derive(Debug)]
 pub enum Connection {
     Init(Initialized),
     Handshake,
@@ -32,7 +31,6 @@ pub enum Connection {
     Failed(Failure),
 }
 
-#[derive(Debug)]
 pub struct Peer {
     pub username: String,
     pub ip: [u8; 4],
