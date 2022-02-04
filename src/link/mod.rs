@@ -132,7 +132,7 @@ impl Link {
         } {}
     }
 
-    pub fn send(&mut self, buf: Vec<u8>) {
+    pub fn send(&self, buf: Vec<u8>) {
         // Lock seq number
         let mut seq_lock = self.send_seq.lock().expect("Unable to lock seq");
         // Increase sequence number
@@ -161,7 +161,7 @@ impl Link {
         self.read_timeout = Some(timeout);
     }
 
-    pub fn recv_timeout(&mut self, timeout: Duration) -> Result<Vec<u8>, u8> {
+    pub fn recv_timeout(&self, timeout: Duration) -> Result<Vec<u8>, u8> {
         let flag_lock = self.stop_flag.lock().expect("Error locking stop flag");
         let stop = *flag_lock;
         drop(flag_lock);
@@ -195,7 +195,7 @@ impl Link {
         }
     }
 
-    pub fn recv(&mut self) -> Result<Vec<u8>, u8> {
+    pub fn recv(&self) -> Result<Vec<u8>, u8> {
         let flag_lock = self.stop_flag.lock().expect("Error locking stop flag");
         let stop = *flag_lock;
         drop(flag_lock);
