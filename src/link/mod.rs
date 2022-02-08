@@ -224,7 +224,7 @@ impl Link {
                                 let aetherError = AetherError {
                                 code: 1000,
                                 description: String::from(
-                                    "Packet arrived before Link Module initialized receive method.",
+                                    "System Time may have changed during initialization.",
                                 ),
                                 cause: None,
                             };
@@ -281,7 +281,7 @@ impl Link {
                                     let aetherError = AetherError {
                                 code: 1000,
                                 description: String::from(
-                                    "Packet arrived before Link Module initialized receive method.",
+                                    "System Time may have changed during initialization.",
                                 ),
                                 cause: None,
                             };
