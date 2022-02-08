@@ -384,7 +384,6 @@ mod tests {
 
         #[test]
         fn check_complete_test() {
-            println!("\n\nIs complete test\n\n");
             let sequence = 10;
             let mut ack_list = AcknowledgementList::new(sequence);
 
