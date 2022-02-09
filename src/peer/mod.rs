@@ -134,35 +134,38 @@ impl Aether {
         match self.connections.lock() {
             Ok(ref mut connections_lock) => match (*connections_lock).get_mut(username) {
                 Some(connection) => match connection {
-                    Connection::Connected(peer) => {match peer.link.recv(){
-                        Ok(_) => log::info!("Link Receive Module succesfully initialized."),
-                        Err(aetherError) => {
-                            Err(AetherError{
-                                code: 1004,
-                                description: String::from("Failed to initialize Module."),
-                                cause: Some(Box::new(aetherError)) // How  should we add aetherError?
-                            })
+                    Connection::Connected(peer) => {
+                        match peer.link.recv() {
+                            Ok(recv_vec) => {
+                                log::info!("Link Receive Module succesfully initialized.");
+                                Ok(recv_vec)
+                            }
+                            Err(aether_error) => {
+                                Err(AetherError {
+                                    code: 1004,
+                                    description: String::from("Failed to initialize Module."),
+                                    cause: Some(Box::new(aether_error)), // How  should we add aether_error?
+                                })
+                            }
                         }
-                    }},
+                    }
                     _ => Err(AetherError {
                         code: 1004,
                         description: String::from("Failed to initialize Module."),
-                        cause: None
+                        cause: None,
                     }),
                 },
-                None => Err(
-                    AetherError{
-                        code: 1005,
-                        description: String::from("Failed to retrieve mutex lock of user."),
-                        cause: None
-                    }
-                ),
+                None => Err(AetherError {
+                    code: 1005,
+                    description: String::from("Failed to retrieve mutex lock of user."),
+                    cause: None,
+                }),
             },
-            Err(_) => Err(AetherError{
+            Err(_) => Err(AetherError {
                 code: 1003,
                 description: String::from("Failed to lock mutex."),
-                cause: None
-            })
+                cause: None,
+            }),
         }
     }
 
@@ -403,7 +406,7 @@ fn handle_request(
                         );
 
                         match link_result {
-                            Ok(mut link) => {
+                            Ok(link) => {
                                 println!("Handshake success");
 
                                 // Authentication
@@ -449,16 +452,17 @@ fn handle_request(
                                         } else {
                                             println!("Authentication failed");
                                         }
-                                    },
-                                    Err(aetherError) => {
+                                    }
+                                    Err(aether_error) => {
                                         log::error!("Failed to authenticate user.");
-                                        AetherError{
+                                        AetherError {
                                             code: 1006,
-                                            description: String::from("Failed to authenticate user."),
-                                            cause: Some(Box::new(aetherError))
+                                            description: String::from(
+                                                "Failed to authenticate user.",
+                                            ),
+                                            cause: Some(Box::new(aether_error)),
                                         };
                                     }
-                                    _ => panic!("Unexpected error"),
                                 }
                             }
                             Err(e) => {

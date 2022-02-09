@@ -171,26 +171,26 @@ impl Link {
                 let now = SystemTime::now();
 
                 if stop {
-                    let aetherError = AetherError {
+                    let aether_error = AetherError {
                         code: 1001,
                         description: String::from("Link Module Terminated."),
                         cause: None,
                     };
-                    //log::error!("{}",aetherError);
-                    Err(aetherError)
+                    //log::error!("{}",aether_error);
+                    Err(aether_error)
                 } else {
                     // Pop the next packet from output queue
                     loop {
                         match now.elapsed() {
                             Ok(elapsed) => {
                                 if elapsed > timeout {
-                                    let aetherError = AetherError {
+                                    let aether_error = AetherError {
                                         code: 1002,
                                         description: String::from("Function timed out"),
                                         cause: None,
                                     };
-                                    log::error!("{}", aetherError);
-                                    break Err(aetherError);
+                                    log::error!("{}", aether_error);
+                                    break Err(aether_error);
                                 } else {
                                     match self.output_queue.lock() {
                                         Ok(mut queue_lock) => {
@@ -209,40 +209,40 @@ impl Link {
                                             };
                                         }
                                         Err(_) => {
-                                            let aetherError = AetherError {
+                                            let aether_error = AetherError {
                                                 code: 1003,
                                                 description: String::from("Failed to lock mutex."),
                                                 cause: None,
                                             };
-                                            log::error!("{}", aetherError);
-                                            break Err(aetherError);
+                                            log::error!("{}", aether_error);
+                                            break Err(aether_error);
                                         }
                                     }
                                 }
                             }
                             Err(_) => {
-                                let aetherError = AetherError {
-                                code: 1000,
-                                description: String::from(
-                                    "System Time may have changed during initialization.",
-                                ),
-                                cause: None,
-                            };
-                                log::error!("{}", aetherError);
-                                break Err(aetherError);
+                                let aether_error = AetherError {
+                                    code: 1000,
+                                    description: String::from(
+                                        "System Time may have changed during initialization.",
+                                    ),
+                                    cause: None,
+                                };
+                                log::error!("{}", aether_error);
+                                break Err(aether_error);
                             }
                         }
                     }
                 }
             }
             Err(_) => {
-                let aetherError = AetherError {
+                let aether_error = AetherError {
                     code: 1003,
                     description: String::from("Failed to lock mutex."),
                     cause: None,
                 };
-                log::error!("{}", aetherError);
-                Err(aetherError)
+                log::error!("{}", aether_error);
+                Err(aether_error)
             }
         }
     }
@@ -255,12 +255,12 @@ impl Link {
                 let now = SystemTime::now();
 
                 if stop {
-                    let aetherError = AetherError {
+                    let aether_error = AetherError {
                         code: 1001,
                         description: String::from("Link Module terminated."),
                         cause: None,
                     };
-                    Err(aetherError)
+                    Err(aether_error)
                 } else {
                     // Pop the next packet from output queue
                     loop {
@@ -268,32 +268,32 @@ impl Link {
                             Some(time) => match now.elapsed() {
                                 Ok(elapsed) => {
                                     if elapsed > time {
-                                        let aetherError = AetherError {
+                                        let aether_error = AetherError {
                                             code: 1002,
                                             description: String::from("Function timed out"),
                                             cause: None,
                                         };
-                                        log::error!("{}", aetherError);
-                                        break Err(aetherError);
+                                        log::error!("{}", aether_error);
+                                        break Err(aether_error);
                                     }
                                 }
                                 Err(_) => {
-                                    let aetherError = AetherError {
-                                code: 1000,
-                                description: String::from(
-                                    "System Time may have changed during initialization.",
-                                ),
-                                cause: None,
-                            };
-                                    log::error!("{}", aetherError);
-                                    break Err(aetherError);
+                                    let aether_error = AetherError {
+                                        code: 1000,
+                                        description: String::from(
+                                            "System Time may have changed during initialization.",
+                                        ),
+                                        cause: None,
+                                    };
+                                    log::error!("{}", aether_error);
+                                    break Err(aether_error);
                                 }
                             },
                             None => (),
                         }
 
                         match self.output_queue.lock() {
-                            Ok(queue_lock) => {
+                            Ok(mut queue_lock) => {
                                 let result = queue_lock.pop_front();
 
                                 drop(queue_lock);
@@ -307,26 +307,26 @@ impl Link {
                                 };
                             }
                             Err(_) => {
-                                let aetherError = AetherError {
+                                let aether_error = AetherError {
                                     code: 1003,
                                     description: String::from("Failed to lock mutex."),
                                     cause: None,
                                 };
-                                log::error!("{}", aetherError);
-                                break Err(aetherError);
+                                log::error!("{}", aether_error);
+                                break Err(aether_error);
                             }
                         }
                     }
                 }
             }
             Err(_) => {
-                let aetherError = AetherError {
+                let aether_error = AetherError {
                     code: 1003,
                     cause: None,
                     description: String::from("Faled to lock mutex."),
                 };
-                log::error!("{}", aetherError);
-                Err(aetherError)
+                log::error!("{}", aether_error);
+                Err(aether_error)
             }
         }
     }
