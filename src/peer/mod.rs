@@ -140,7 +140,7 @@ impl Aether {
                             Err(AetherError{
                                 code: 1004,
                                 description: String::from("Failed to initialize Module."),
-                                cause: None // How  should we add aetherError?
+                                cause: Some(Box::new(aetherError)) // How  should we add aetherError?
                             })
                         }
                     }},
@@ -451,11 +451,11 @@ fn handle_request(
                                         }
                                     },
                                     Err(aetherError) => {
-                                        log::error!("Authentication failed");
+                                        log::error!("Failed to authenticate user.");
                                         AetherError{
                                             code: 1006,
                                             description: String::from("Failed to authenticate user."),
-                                            cause: None // Replace with aetherError?
+                                            cause: Some(Box::new(aetherError))
                                         };
                                     }
                                     _ => panic!("Unexpected error"),
