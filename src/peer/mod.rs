@@ -2,7 +2,7 @@ pub mod handshake;
 
 use std::collections::VecDeque;
 use std::convert::TryFrom;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use std::thread;
 use std::time::{Duration, SystemTime};
@@ -12,7 +12,6 @@ use std::net::{IpAddr, Ipv4Addr, UdpSocket};
 
 use rand::{thread_rng, Rng};
 
-use crate::link::POLL_TIME_US;
 use crate::tracker::TrackerPacket;
 use crate::{link::Link, tracker::ConnectionRequest};
 
@@ -23,6 +22,14 @@ pub const SERVER_POLL_TIME: u64 = 1000;
 pub const HANDSHAKE_RETRY_DELAY: u64 = 5000;
 pub const CONNECTION_CHECK_DELAY: u64 = 1000;
 pub const DELTA_TIME: u64 = 100;
+pub const POLL_TIME_US: u64 = 100;
+
+pub enum Connection {
+    Init(Initialized),
+    Handshake,
+    Connected(Peer),
+    Failed(Failure),
+}
 
 pub struct Peer {
     pub username: String,
@@ -39,16 +46,35 @@ pub struct Initialized {
     identity_number: u32,
 }
 
+impl Initialized {
+    pub fn new(username: String) -> Initialized {
+        Initialized {
+            username,
+            socket: UdpSocket::bind(("0.0.0.0", 0)).expect("unable to create socket"),
+            identity_number: 1,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct Failure {
+    time: SystemTime,
+    socket: UdpSocket,
+    username: String,
+}
+
+/// [`Aether`] is an interface used to connect to other peers as well as communicate
+/// with them
 pub struct Aether {
+    /// Username assigned to the Aether instance
     pub username: String,
+    /// The [`UdpSocket`] to be used for communication
     socket: Arc<UdpSocket>,
-    peers: Arc<Mutex<HashMap<String, Peer>>>,
-    is_connecting: Arc<Mutex<HashMap<String, bool>>>,
-    initialized: Arc<Mutex<HashMap<String, Initialized>>>,
+    /// Queue of connection requests received
     requests: Arc<Mutex<VecDeque<ConnectionRequest>>>,
-    failed: Arc<Mutex<HashMap<(u32, String), SystemTime>>>,
+    /// Address of the tracker server
     tracker_addr: SocketAddr,
-    id_number: Arc<Mutex<u32>>,
+    connections: Arc<Mutex<HashMap<String, Connection>>>,
 }
 
 impl Aether {
@@ -59,71 +85,59 @@ impl Aether {
             .expect("Unable to set read timeout");
         Aether {
             username,
-            peers: Arc::new(Mutex::new(HashMap::new())),
-            initialized: Arc::new(Mutex::new(HashMap::new())),
             requests: Arc::new(Mutex::new(VecDeque::new())),
             tracker_addr,
-            is_connecting: Arc::new(Mutex::new(HashMap::new())),
-            failed: Arc::new(Mutex::new(HashMap::new())),
-            id_number: Arc::new(Mutex::new(1)),
             socket,
+            connections: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
     pub fn start(&self) {
         println!("Starting aether service...");
+        println!("Failure fix");
         self.connection_poll();
-        self.handle_initialized();
+        self.handle_sockets();
         self.handle_requests();
     }
 
     pub fn connect(&self, username: String) {
-        let peers_lock = self.peers.lock().expect("Unable to lock peers");
+        let mut connections_lock = self.connections.lock().expect("Unable to lock peers");
 
-        let is_connected = match (*peers_lock).get(&username) {
+        let is_present = match (*connections_lock).get(&username) {
             Some(_) => true,
             None => false,
         };
 
-        drop(peers_lock);
+        if !is_present {
+            let initialized = Initialized::new(username.clone());
 
-        if !is_connected {
-            let mut id_lock = self.id_number.lock().expect("unable to lock id number");
-            (*id_lock) = 1;
-            let id_number = *id_lock;
-
-            let mut initialized_lock = self
-                .initialized
-                .lock()
-                .expect("unable to lock initailized list");
-
-            let connection = Initialized {
-                identity_number: id_number,
-                socket: UdpSocket::bind(("0.0.0.0", 0)).expect("unable to create socket"),
-                username: username.clone(),
-            };
-
-            (*initialized_lock).insert(username, connection);
+            (*connections_lock).insert(username, Connection::Init(initialized));
         }
     }
 
     pub fn send_to(&self, username: &String, buf: Vec<u8>) -> Result<u8, u8> {
-        let mut peers_lock = self.peers.lock().expect("unable to lock peers list");
-        match (*peers_lock).get_mut(username) {
-            Some(peer) => {
-                peer.link.send(buf);
-                Ok(0)
-            }
+        let mut connections_lock = self.connections.lock().expect("unable to lock peers list");
+        match (*connections_lock).get_mut(username) {
+            Some(connection) => match connection {
+                Connection::Connected(peer) => {
+                    peer.link.send(buf);
+                    Ok(0)
+                }
+                _ => Err(3),
+            },
 
             None => Err(1),
         }
     }
 
     pub fn recv_from(&self, username: &String) -> Result<Vec<u8>, u8> {
-        let mut peers_lock = self.peers.lock().expect("unable to lock peers list");
+        let mut connections_lock = self.connections.lock().expect("unable to lock peers list");
 
-        match (*peers_lock).get_mut(username) {
-            Some(peer) => peer.link.recv(),
+        match (*connections_lock).get_mut(username) {
+            Some(connection) => match connection {
+                Connection::Connected(peer) => peer.link.recv(),
+                _ => Err(3),
+            },
             None => Err(1),
         }
     }
@@ -151,70 +165,105 @@ impl Aether {
     }
 
     pub fn is_connected(&self, username: &String) -> bool {
-        let peers_lock = self.peers.lock().expect("unable to lock peers list");
+        let connections_lock = self.connections.lock().expect("unable to lock peers list");
 
-        match (*peers_lock).get(username) {
-            Some(_) => true,
-            None => false,
+        match (*connections_lock).get(username) {
+            Some(connection) => match connection {
+                Connection::Connected(_) => true,
+                _ => false,
+            },
+            _ => false,
         }
     }
 
     pub fn is_connecting(&self, username: &String) -> bool {
-        let connecting_lock = self
-            .is_connecting
+        let connections_lock = self
+            .connections
             .lock()
             .expect("unable to lock connecting list");
-        match (*connecting_lock).get(username) {
-            Some(v) => *v,
+        match (*connections_lock).get(username) {
+            Some(connection) => match connection {
+                Connection::Failed(_) => false,
+                Connection::Connected(_) => false,
+                _ => true,
+            },
             None => false,
         }
     }
 
     pub fn is_initialized(&self, username: &String) -> bool {
-        let init_lock = self
-            .initialized
+        let connections_lock = self
+            .connections
             .lock()
-            .expect("unable to lock initialized list");
-
-        match (*init_lock).get(username) {
-            Some(_) => true,
+            .expect("unable to lock connecting list");
+        match (*connections_lock).get(username) {
+            Some(connection) => match connection {
+                Connection::Init(_) => true,
+                _ => false,
+            },
             None => false,
         }
     }
 
-    fn handle_initialized(&self) {
+    fn handle_sockets(&self) {
         let my_username = self.username.clone();
-        let initialized = self.initialized.clone();
+        let connections = self.connections.clone();
         let tracker_addr = self.tracker_addr.clone();
         thread::spawn(move || {
             loop {
-                // Lock initialized list
-                let init_lock = initialized.lock().expect("unable to lock initialized list");
+                // Lock connections list
+                let connections_lock = connections.lock().expect("unable to lock initialized list");
 
-                // For each initailized connection, send a connection request
-                for (_, v) in (*init_lock).iter() {
-                    let packet = TrackerPacket {
-                        username: my_username.clone(),
-                        peer_username: v.username.clone(),
-                        identity_number: v.identity_number,
-                        packet_type: 2,
-                        req: true,
-                        ..Default::default()
+                // For each connection
+                for (_, connection) in (*connections_lock).iter() {
+                    // If connection is in initialized or failed state, send connection
+                    // request
+                    match connection {
+                        Connection::Init(init) => {
+                            Self::send_connection_request(
+                                my_username.clone(),
+                                init.username.clone(),
+                                &init.socket,
+                                tracker_addr,
+                            );
+                        }
+                        Connection::Failed(failed) => Self::send_connection_request(
+                            my_username.clone(),
+                            failed.username.clone(),
+                            &failed.socket,
+                            tracker_addr,
+                        ),
+                        _ => {}
                     };
-
-                    let packet_data: Vec<u8> =
-                        Vec::try_from(packet).expect("Unable to encode packet");
-
-                    v.socket
-                        .send_to(&packet_data, tracker_addr)
-                        .expect("unable to send packet to server");
                 }
 
                 // Unlock initailized list
-                drop(init_lock);
+                drop(connections_lock);
                 thread::sleep(Duration::from_millis(SERVER_POLL_TIME));
             }
         });
+    }
+
+    fn send_connection_request(
+        username: String,
+        peer_username: String,
+        socket: &UdpSocket,
+        tracker_addr: SocketAddr,
+    ) {
+        let packet = TrackerPacket {
+            username,
+            peer_username,
+            identity_number: 1,
+            packet_type: 2,
+            req: true,
+            ..Default::default()
+        };
+
+        let packet_data: Vec<u8> = Vec::try_from(packet).expect("Unable to encode packet");
+
+        socket
+            .send_to(&packet_data, tracker_addr)
+            .expect("unable to send packet to server");
     }
 
     fn connection_poll(&self) {
@@ -247,8 +296,6 @@ impl Aether {
                 let response_packet =
                     TrackerPacket::try_from(response_data).expect("Unable to decode packet");
 
-                //println!("{:?}", response_packet.connections);
-
                 for v in response_packet.connections {
                     let mut req_lock = requests.lock().expect("unable to lock request queue");
                     (*req_lock).push_back(v);
@@ -261,226 +308,215 @@ impl Aether {
 
     fn handle_requests(&self) {
         let requests = self.requests.clone();
-        let initialized = self.initialized.clone();
-        let peers = self.peers.clone();
-        let is_connecting = self.is_connecting.clone();
+        let connections = self.connections.clone();
         let my_username = self.username.clone();
         let tracker_addr = self.tracker_addr.clone();
-
-        let failed_list = self.failed.clone();
-
-        let id_number = self.id_number.clone();
 
         thread::spawn(move || loop {
             let mut req_lock = requests.lock().expect("Unable to lock requests queue");
 
             // For each request received
             match (*req_lock).pop_front() {
-                Some(request) => {
-                    let failed_lock = failed_list.lock().expect("unable to lock failed list");
-                    let elapsed = match (*failed_lock)
-                        .get(&(request.identity_number, request.username.clone()))
-                    {
-                        Some(time) => time
-                            .elapsed()
-                            .expect("unable to get system time")
-                            .as_millis(),
-                        None => u128::MAX,
-                    };
-                    drop(failed_lock);
-
-                    let mut init_lock =
-                        initialized.lock().expect("unable to lock initialized list");
-                    let init_option = (*init_lock).remove(&request.username);
-
-                    // Check if already been initialized
-                    match init_option {
-                        // If initialized, start handshake
-                        Some(init) => {
-                            // if elapsed time since last fail is greater than threshold
-                            // Only then try again
-                            let delay = thread_rng().gen_range(0..DELTA_TIME);
-                            if elapsed > (HANDSHAKE_RETRY_DELAY + delay).into() {
-                                let mut connect_lock = is_connecting
-                                    .lock()
-                                    .expect("unable to lock is connecting list");
-                                (*connect_lock).insert(init.username.clone(), true);
-
-                                drop(connect_lock);
-
-                                let is_connecting_clone = is_connecting.clone();
-
-                                let username = my_username.clone();
-                                let peers_list = peers.clone();
-
-                                let failed_list_clone = failed_list.clone();
-
-                                thread::spawn(move || {
-                                    let peer_ip = IpAddr::V4(Ipv4Addr::from(request.ip));
-                                    let peer_octets = match peer_ip {
-                                        IpAddr::V4(ip4) => ip4.octets(),
-                                        IpAddr::V6(_) => unreachable!(),
-                                    };
-                                    let peer_addr = SocketAddr::new(peer_ip, request.port);
-                                    let peer_username = request.username;
-
-                                    let mut success = false;
-
-                                    let link_result = handshake(
-                                        init.socket,
-                                        peer_addr,
-                                        username.clone(),
-                                        peer_username.clone(),
-                                    );
-
-                                    match link_result {
-                                        Ok(link) => {
-                                            println!("Handshake success");
-                                            link.send(username.clone().into_bytes());
-                                            let delay = thread_rng().gen_range(0..DELTA_TIME);
-                                            match link.recv_timeout(Duration::from_millis(
-                                                HANDSHAKE_RETRY_DELAY / 2 + delay,
-                                            )) {
-                                                Ok(recved) => {
-                                                    println!("Received nonce");
-                                                    let recved_username =
-                                                        match String::from_utf8(recved) {
-                                                            Ok(name) => name,
-                                                            Err(_) => String::from(""),
-                                                        };
-
-                                                    if recved_username == peer_username {
-                                                        println!("Authenticated");
-                                                        let peer = Peer {
-                                                            username: peer_username.clone(),
-                                                            ip: peer_octets,
-                                                            port: request.port,
-                                                            identity_number: request
-                                                                .identity_number,
-                                                            link,
-                                                        };
-
-                                                        let mut peers_lock = peers_list
-                                                            .lock()
-                                                            .expect("unable to lock peer list");
-
-                                                        (*peers_lock)
-                                                            .insert(peer_username.clone(), peer);
-                                                        success = true;
-                                                    } else {
-                                                        println!("Authentication failed");
-                                                    }
-                                                }
-                                                Err(255) => {
-                                                    println!("Authentication failed")
-                                                }
-                                                _ => panic!("Unexpected error"),
-                                            }
-                                        }
-                                        Err(e) => {
-                                            println!("Handshake failed {}", e);
-                                        }
-                                    }
-
-                                    let mut connect_lock = is_connecting_clone
-                                        .lock()
-                                        .expect("unable to lock is connecting list");
-                                    (*connect_lock).insert(peer_username.clone(), false);
-
-                                    // If unsuccessful store time of failure
-                                    if !success {
-                                        let mut failed_lock = failed_list_clone
-                                            .lock()
-                                            .expect("unable to lock failed list");
-                                        (*failed_lock).insert(
-                                            (request.identity_number, peer_username),
-                                            SystemTime::now(),
-                                        );
-                                    } else {
-                                        // if successful remove any time for failure
-                                        let mut failed_lock = failed_list_clone
-                                            .lock()
-                                            .expect("unable to lock failed list");
-                                        (*failed_lock)
-                                            .remove(&(request.identity_number, peer_username));
-                                    }
-
-                                    drop(connect_lock);
-                                });
-                            } else {
-                                (*init_lock).insert(init.username.clone(), init);
-                            }
-                        }
-                        // If not initailized (other peer is initiator)
-                        // Initailize the request
-                        None => {
-                            let connect_lock = is_connecting
-                                .lock()
-                                .expect("unable to lock is connecting list");
-
-                            let flag = match (*connect_lock).get(&request.username) {
-                                Some(v) => *v,
-                                None => false,
-                            };
-
-                            drop(connect_lock);
-
-                            if !flag {
-                                let peers_lock = peers.lock().expect("unable to lock peers list");
-                                let is_connected = match (*peers_lock).get(&request.username) {
-                                    Some(_) => true,
-                                    None => false,
-                                };
-
-                                drop(peers_lock);
-
-                                // if already connected do nothing
-                                if !is_connected {
-                                    let mut id_lock =
-                                        id_number.lock().expect("unable to lock id number");
-                                    (*id_lock) = 1;
-                                    let id_number = *id_lock;
-
-                                    drop(id_lock);
-
-                                    // Create new identity
-                                    let connection = Initialized {
-                                        identity_number: id_number,
-                                        socket: UdpSocket::bind(("0.0.0.0", 0))
-                                            .expect("unable to create socket"),
-                                        username: request.username.clone(),
-                                    };
-                                    let packet = TrackerPacket {
-                                        username: my_username.clone(),
-                                        peer_username: connection.username.clone(),
-                                        identity_number: connection.identity_number,
-                                        packet_type: 2,
-                                        req: true,
-                                        ..Default::default()
-                                    };
-
-                                    let packet_data: Vec<u8> =
-                                        Vec::try_from(packet).expect("Unable to encode packet");
-
-                                    connection
-                                        .socket
-                                        .send_to(&packet_data, tracker_addr)
-                                        .expect("unable to send packet to server");
-
-                                    (*init_lock).insert(request.username.clone(), connection);
-
-                                    (*req_lock).push_back(request);
-                                }
-                            }
-                            drop(init_lock);
-                        }
-                    }
-                }
+                Some(request) => handle_request(
+                    request,
+                    my_username.clone(),
+                    &mut connections.clone(),
+                    tracker_addr,
+                    &mut req_lock,
+                ),
                 None => (),
             }
 
             drop(req_lock);
             thread::sleep(Duration::from_micros(POLL_TIME_US));
         });
+    }
+}
+
+fn handle_request(
+    request: ConnectionRequest,
+    my_username: String,
+    connections: &mut Arc<Mutex<HashMap<String, Connection>>>,
+    tracker_addr: SocketAddr,
+    req_lock: &mut MutexGuard<VecDeque<ConnectionRequest>>,
+) {
+    let mut connections_lock = connections.lock().expect("unable to lock failed list");
+
+    // Check if connection exists in connection list
+    match (*connections_lock).remove(&request.username) {
+        Some(connection) => {
+            match connection {
+                // If initialized, start handshake
+                // Initailized either since connection request was made by us first
+                // Or initailized after receiving connection request from other peer
+                Connection::Init(init) => {
+                    // Clone important data to pass to handshake thread
+                    let connections_clone = connections.clone();
+                    let my_username_clone = my_username.clone();
+
+                    // Put current user in handshake state
+                    (*connections_lock).insert(init.username.clone(), Connection::Handshake);
+
+                    // Create a thread to start handshake and establish connection
+                    thread::spawn(move || {
+                        // Initailize data values for handshake
+                        let peer_ip = IpAddr::V4(Ipv4Addr::from(request.ip));
+                        let peer_octets = match peer_ip {
+                            IpAddr::V4(ip4) => ip4.octets(),
+                            IpAddr::V6(_) => unreachable!(),
+                        };
+                        let peer_addr = SocketAddr::new(peer_ip, request.port);
+                        let peer_username = request.username;
+
+                        let mut success = false;
+
+                        // Start handshake
+                        let link_result = handshake(
+                            init.socket,
+                            peer_addr,
+                            my_username_clone.clone(),
+                            peer_username.clone(),
+                        );
+
+                        match link_result {
+                            Ok(mut link) => {
+                                println!("Handshake success");
+
+                                // Authentication
+                                // Send own username
+                                link.send(my_username_clone.clone().into_bytes());
+                                let delay = thread_rng().gen_range(0..DELTA_TIME);
+
+                                // Receive other peer's username
+                                match link.recv_timeout(Duration::from_millis(
+                                    HANDSHAKE_RETRY_DELAY / 2 + delay,
+                                )) {
+                                    Ok(recved) => {
+                                        println!("Received nonce");
+                                        let recved_username = match String::from_utf8(recved) {
+                                            Ok(name) => name,
+                                            Err(_) => String::from(""),
+                                        };
+
+                                        // If correct authentication
+                                        if recved_username == peer_username {
+                                            println!("Authenticated");
+
+                                            // Create new Peer instance
+                                            let peer = Peer {
+                                                username: peer_username.clone(),
+                                                ip: peer_octets,
+                                                port: request.port,
+                                                identity_number: request.identity_number,
+                                                link,
+                                            };
+
+                                            let mut connections_lock = connections_clone
+                                                .lock()
+                                                .expect("unable to lock peer list");
+
+                                            // Add connected peer to connections list
+                                            // with connected state
+                                            (*connections_lock).insert(
+                                                peer_username.clone(),
+                                                Connection::Connected(peer),
+                                            );
+                                            success = true;
+                                        } else {
+                                            println!("Authentication failed");
+                                        }
+                                    }
+                                    Err(255) => {
+                                        println!("Authentication failed")
+                                    }
+                                    _ => panic!("Unexpected error"),
+                                }
+                            }
+                            Err(e) => {
+                                println!("Handshake failed {}", e);
+                            }
+                        }
+
+                        // If unsuccessful store time of failure
+                        if !success {
+                            let mut connections_lock =
+                                connections_clone.lock().expect("unable to lock peer list");
+
+                            // Add failure entry to connection list
+                            (*connections_lock).insert(
+                                peer_username.clone(),
+                                Connection::Failed(Failure {
+                                    time: SystemTime::now(),
+                                    socket: UdpSocket::bind(("0.0.0.0", 0))
+                                        .expect("unable to create socket"),
+                                    username: peer_username.clone(),
+                                }),
+                            );
+                        }
+                    });
+                }
+                Connection::Failed(failed) => {
+                    let delta = thread_rng().gen_range(0..DELTA_TIME);
+                    let elapsed = failed
+                        .time
+                        .elapsed()
+                        .expect("unable to get system time")
+                        .as_millis();
+
+                    // if elapsed time since the fail is greater than threshold
+                    // then put back in initialized state
+                    if elapsed > (HANDSHAKE_RETRY_DELAY + delta).into() {
+                        (*connections_lock).insert(
+                            failed.username.clone(),
+                            Connection::Init(Initialized {
+                                username: failed.username,
+                                socket: failed.socket,
+                                identity_number: 1,
+                            }),
+                        );
+                    } else {
+                        // If elapsed time is not long enough
+                        // insert back into the list
+                        (*connections_lock)
+                            .insert(failed.username.clone(), Connection::Failed(failed));
+                    }
+                }
+                other => {
+                    // If in other state, insert back the value
+                    (*connections_lock).insert(request.username.clone(), other);
+                }
+            }
+        }
+        // If not in connections (other peer is initiator)
+        // Initailize the request
+        None => {
+            // Create new identity
+            let connection = Initialized {
+                identity_number: 1,
+                socket: UdpSocket::bind(("0.0.0.0", 0)).expect("unable to create socket"),
+                username: request.username.clone(),
+            };
+
+            let packet = TrackerPacket {
+                username: my_username.clone(),
+                peer_username: connection.username.clone(),
+                identity_number: connection.identity_number,
+                packet_type: 2,
+                req: true,
+                ..Default::default()
+            };
+
+            let packet_data: Vec<u8> = Vec::try_from(packet).expect("Unable to encode packet");
+
+            connection
+                .socket
+                .send_to(&packet_data, tracker_addr)
+                .expect("unable to send packet to server");
+
+            // Insert new initialized connection
+            (*connections_lock).insert(request.username.clone(), Connection::Init(connection));
+
+            (*req_lock).push_back(request);
+        }
     }
 }
