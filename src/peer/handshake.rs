@@ -16,7 +16,7 @@ pub fn handshake(
     address: SocketAddr,
     my_username: String,
     peer_username: String,
-) -> Result<Link, AetherError> {
+) -> Result<Link, u8> {
     let seq = thread_rng().gen_range(0..(1 << 16 as u32)) as u32;
     let recv_seq: u32;
 
@@ -113,7 +113,7 @@ pub fn handshake(
     }
 
     // Start the link
-    let mut link = Link::new(socket, address.clone(), seq, recv_seq);
+    let mut link = Link::new(socket, address.clone(), seq, recv_seq).expect("Unable to initialize Link Module.");
 
     link.start();
 
