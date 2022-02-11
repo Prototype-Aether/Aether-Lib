@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::{acknowledgement::Acknowledgement, packet::Packet};
-use crate::{link::Link, packet::PType};
+use crate::{link::Link, packet::PType, error::AetherError};
 
 use rand::{thread_rng, Rng};
 
@@ -16,7 +16,7 @@ pub fn handshake(
     address: SocketAddr,
     my_username: String,
     peer_username: String,
-) -> Result<Link, u8> {
+) -> Result<Link, AetherError> {
     let seq = thread_rng().gen_range(0..(1 << 16 as u32)) as u32;
     let recv_seq: u32;
 

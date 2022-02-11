@@ -49,18 +49,32 @@ pub struct Link {
 }
 
 impl Link {
-    pub fn new(socket: UdpSocket, peer_addr: SocketAddr, send_seq: u32, recv_seq: u32) -> Link {
+    pub fn new(
+        socket: UdpSocket,
+        peer_addr: SocketAddr,
+        send_seq: u32,
+        recv_seq: u32,
+    ) -> Result<Link, AetherError> {
         let socket = Arc::new(socket);
-        socket
-            .set_read_timeout(Some(Duration::from_secs(1)))
-            .expect("Unable to set timeout");
+        match socket.set_read_timeout(Some(Duration::from_secs(1))) {
+            Ok(_) => {}
+            Err(_) => {
+                let aether_error = AetherError {
+                    code: 1006,
+                    description: String::from("Failed to set timeout."),
+                    cause: None,
+                };
+                log::error!("{}", aether_error);
+                return Err(aether_error)
+            }
+        }
 
         let primary_queue = Arc::new(Mutex::new(VecDeque::new()));
         let output_queue = Arc::new(Mutex::new(VecDeque::new()));
 
         let stop_flag = Arc::new(Mutex::new(false));
         let batch_empty = Arc::new(Mutex::new(false));
-        Link {
+        Ok(Link {
             ack_list: Arc::new(Mutex::new(AcknowledgementList::new(recv_seq))),
             ack_check: Arc::new(Mutex::new(AcknowledgementCheck::new(send_seq))),
             peer_addr,
@@ -73,7 +87,7 @@ impl Link {
             stop_flag,
             batch_empty,
             read_timeout: None,
-        }
+        })
     }
 
     pub fn start(&mut self) {
