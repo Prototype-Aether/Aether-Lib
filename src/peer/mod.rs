@@ -90,7 +90,7 @@ pub struct Aether {
 
 impl Aether {
     pub fn new(username: String, tracker_addr: SocketAddr) -> Aether {
-        let config: Config = Default::default();
+        let config = Config::get_config().expect("Error getting config");
         let socket = Arc::new(UdpSocket::bind(("0.0.0.0", 0)).unwrap());
         socket
             .set_read_timeout(Some(Duration::from_millis(
@@ -109,7 +109,6 @@ impl Aether {
 
     pub fn start(&self) {
         println!("Starting aether service...");
-        println!("Failure fix");
         self.connection_poll();
         self.handle_sockets();
         self.handle_requests();
