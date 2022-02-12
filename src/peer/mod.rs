@@ -18,14 +18,6 @@ use crate::{link::Link, tracker::ConnectionRequest};
 
 use self::handshake::handshake;
 
-/*
-pub const SERVER_RETRY_DELAY: u64 = 1000;
-pub const SERVER_POLL_TIME: u64 = 1000;
-pub const HANDSHAKE_RETRY_DELAY: u64 = 5000;
-pub const CONNECTION_CHECK_DELAY: u64 = 1000;
-pub const DELTA_TIME: u64 = 100;
-pub const POLL_TIME_US: u64 = 100;
-*/
 /// Enumeration representing different states of a connection
 pub enum Connection {
     /// Initialized state - connection has been initialized and is waiting to receive
