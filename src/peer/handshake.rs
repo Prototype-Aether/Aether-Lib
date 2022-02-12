@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::{acknowledgement::Acknowledgement, packet::Packet};
-use crate::{link::Link, packet::PType, error::AetherError};
+use crate::{link::Link, packet::PType};
 
 use rand::{thread_rng, Rng};
 

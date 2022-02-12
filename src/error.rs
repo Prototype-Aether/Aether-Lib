@@ -6,6 +6,16 @@ pub struct AetherError {
     pub cause: Option<Box<AetherError>>,
 }
 
+impl AetherError {
+    pub fn new(_code: u16, _description: String, _cause: Option<Box<AetherError>>) -> AetherError {
+        AetherError {
+            code: _code,
+            description: String::from(_description),
+            cause: _cause,
+        }
+    }
+}
+
 impl Display for AetherError {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(f, "E{}: {}", self.code, self.description)
