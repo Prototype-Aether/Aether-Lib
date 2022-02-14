@@ -1,3 +1,16 @@
+//! Structures to represent configuration used by `aether_lib`
+//!
+//! - All time values are in milliseconds unless specified otherwise
+//! - `_US` is used as suffix for time values in microseconds
+//!
+//! ## Configuration file
+//! The default configuration file is to be stored in `$HOME/.config/aether/config.yaml` and must
+//! be in [YAML](https://yaml.org/) format
+//!
+//! Note that any missing values will be replaced with default values. It is not recommended to
+//! leave any missing values in the configuration file as the values need to follow certain
+//! constaints. For example, `handshake_timeout` cannot be smaller than `peer_poll_time` because in
+//! such a case, the handshake would timeout before even a single poll is complete.
 use serde::{Deserialize, Serialize};
 use std::{convert::TryFrom, default::Default, fs, path::Path};
 
@@ -5,12 +18,15 @@ use crate::error::AetherError;
 
 /// Structure to represent configuration options for `aether_lib`
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
+#[serde(default)]
 pub struct Config {
     pub aether: AetherConfig,
+    pub handshake: HandshakeConfig,
 }
 
 /// Structure to represent configuration for [`Aether`][crate::peer::Aether]
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
+#[serde(default)]
 pub struct AetherConfig {
     /// Duration to wait for Tracker server to respond (in ms)
     pub server_retry_delay: u64,
@@ -27,6 +43,19 @@ pub struct AetherConfig {
     /// General poll time to be used to check for updates to lists shared by threads
     /// (in us)
     pub poll_time_us: u64,
+}
+
+/// Structure to represent configuration for [`handshake`][crate::peer::handshake::handshake]
+/// function
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
+#[serde(default)]
+pub struct HandshakeConfig {
+    /// Poll time to send sequence or sequence+acknowledgement to the other peer
+    /// Also, the timeout for receiving sequence or sequence+acknowledgment from the other peer (in
+    /// ms)
+    pub peer_poll_time: u64,
+    /// Timeout after which handshake can be declared failed if not complete (in ms)
+    pub handshake_timeout: u64,
 }
 
 impl Config {
@@ -127,19 +156,31 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             aether: Default::default(),
+            handshake: Default::default(),
         }
     }
 }
 
+/// Default values for [`AetherConfig`]
 impl Default for AetherConfig {
     fn default() -> Self {
         Self {
-            server_retry_delay: 1000,
-            server_poll_time: 1000,
-            handshake_retry_delay: 5000,
-            connection_check_delay: 1000,
+            server_retry_delay: 1_000,
+            server_poll_time: 1_000,
+            handshake_retry_delay: 5_000,
+            connection_check_delay: 1_000,
             delta_time: 100,
             poll_time_us: 100,
+        }
+    }
+}
+
+/// Default values for [`HandshakeConfig`]
+impl Default for HandshakeConfig {
+    fn default() -> Self {
+        Self {
+            peer_poll_time: 500,
+            handshake_timeout: 5_000,
         }
     }
 }

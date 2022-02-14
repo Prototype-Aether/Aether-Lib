@@ -394,6 +394,7 @@ fn handle_request(
                             peer_addr,
                             my_username_clone.clone(),
                             peer_username.clone(),
+                            config_clone,
                         );
 
                         match link_result {

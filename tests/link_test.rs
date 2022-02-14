@@ -3,6 +3,7 @@ mod tests {
     use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
     use std::thread;
 
+    use aether_lib::config::Config;
     use aether_lib::link::Link;
     use aether_lib::peer::handshake::handshake;
     #[test]
@@ -82,6 +83,7 @@ mod tests {
                 peer_addr2,
                 String::from("peer1"),
                 String::from("peer2"),
+                Config::default(),
             )
             .expect("Handshake failed");
 
@@ -107,6 +109,7 @@ mod tests {
                 peer_addr1,
                 String::from("peer2"),
                 String::from("peer1"),
+                Config::default(),
             )
             .expect("Handshake failed");
 
