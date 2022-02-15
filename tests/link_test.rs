@@ -121,7 +121,9 @@ mod tests {
                             break;
                         }
                     }
-                    Err(aether_error) => panic!("Error {}: {}", aether_error.code, aether_error.description),
+                    Err(aether_error) => {
+                        panic!("Error {}: {}", aether_error.code, aether_error.description)
+                    }
                 }
             }
 

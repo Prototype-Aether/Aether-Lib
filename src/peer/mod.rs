@@ -120,7 +120,7 @@ impl Aether {
         match (*connections_lock).get_mut(username) {
             Some(connection) => match connection {
                 Connection::Connected(peer) => {
-                    peer.link.send(buf);
+                    peer.link.send(buf).unwrap();
                     Ok(0)
                 }
                 _ => Err(3),
@@ -143,7 +143,8 @@ impl Aether {
                             log::error!("{}", aether_error);
                             Err(AetherError {
                                 code: 1005,
-                                description: "User not connected. Connection could not be established.",
+                                description:
+                                    "User not connected. Connection could not be established.",
                             })
                         }
                     },
@@ -339,13 +340,16 @@ impl Aether {
 
             // For each request received
             match (*req_lock).pop_front() {
-                Some(request) => handle_request(
-                    request,
-                    my_username.clone(),
-                    &mut connections.clone(),
-                    tracker_addr,
-                    &mut req_lock,
-                ),
+                Some(request) => {
+                    handle_request(
+                        request,
+                        my_username.clone(),
+                        &mut connections.clone(),
+                        tracker_addr,
+                        &mut req_lock,
+                    ).expect("Request Failed.");
+                }
+
                 None => (),
             }
 
@@ -361,7 +365,7 @@ fn handle_request(
     connections: &mut Arc<Mutex<HashMap<String, Connection>>>,
     tracker_addr: SocketAddr,
     req_lock: &mut MutexGuard<VecDeque<ConnectionRequest>>,
-) {
+) -> Result<(), AetherError> {
     let mut connections_lock = connections.lock().expect("unable to lock failed list");
 
     // Check if connection exists in connection list
@@ -406,60 +410,69 @@ fn handle_request(
 
                                 // Authentication
                                 // Send own username
-                                link.send(my_username_clone.clone().into_bytes());
-                                let delay = thread_rng().gen_range(0..DELTA_TIME);
+                                match link.send(my_username_clone.clone().into_bytes()) {
+                                    Ok(_) => {
+                                        let delay = thread_rng().gen_range(0..DELTA_TIME);
 
-                                // Receive other peer's username
-                                match link.recv_timeout(Duration::from_millis(
-                                    HANDSHAKE_RETRY_DELAY / 2 + delay,
-                                )) {
-                                    Ok(recved) => {
-                                        println!("Received nonce");
-                                        let recved_username = match String::from_utf8(recved) {
-                                            Ok(name) => name,
-                                            Err(_) => String::from(""),
-                                        };
+                                        // Receive other peer's username
+                                        match link.recv_timeout(Duration::from_millis(
+                                            HANDSHAKE_RETRY_DELAY / 2 + delay,
+                                        )) {
+                                            Ok(recved) => {
+                                                println!("Received nonce");
+                                                let recved_username =
+                                                    match String::from_utf8(recved) {
+                                                        Ok(name) => name,
+                                                        Err(_) => String::from(""),
+                                                    };
 
-                                        // If correct authentication
-                                        if recved_username == peer_username {
-                                            println!("Authenticated");
+                                                // If correct authentication
+                                                if recved_username == peer_username {
+                                                    println!("Authenticated");
 
-                                            // Create new Peer instance
-                                            let peer = Peer {
-                                                username: peer_username.clone(),
-                                                ip: peer_octets,
-                                                port: request.port,
-                                                identity_number: request.identity_number,
-                                                link,
-                                            };
+                                                    // Create new Peer instance
+                                                    let peer = Peer {
+                                                        username: peer_username.clone(),
+                                                        ip: peer_octets,
+                                                        port: request.port,
+                                                        identity_number: request.identity_number,
+                                                        link,
+                                                    };
 
-                                            let mut connections_lock = connections_clone
-                                                .lock()
-                                                .expect("unable to lock peer list");
+                                                    let mut connections_lock = connections_clone
+                                                        .lock()
+                                                        .expect("unable to lock peer list");
 
-                                            // Add connected peer to connections list
-                                            // with connected state
-                                            (*connections_lock).insert(
-                                                peer_username.clone(),
-                                                Connection::Connected(peer),
-                                            );
-                                            success = true;
-                                        } else {
-                                            println!("Authentication failed");
+                                                    // Add connected peer to connections list
+                                                    // with connected state
+                                                    (*connections_lock).insert(
+                                                        peer_username.clone(),
+                                                        Connection::Connected(peer),
+                                                    );
+                                                    success = true;
+                                                } else {
+                                                    return Err(AetherError::new(
+                                                        1006,
+                                                        "Failed to authenticate user.",
+                                                    ));
+                                                }
+                                            }
+                                            Err(aether_error) => {
+                                                log::error!("{}", aether_error);
+                                                return Err(AetherError::new(
+                                                    1006,
+                                                    "Failed to authenticate user.",
+                                                ));
+                                            }
                                         }
                                     }
-                                    Err(aether_error) => {
-                                        log::error!("Failed to authenticate user.");
-                                        AetherError {
-                                            code: 1006,
-                                            description: "Failed to authenticate user.",
-                                        };
+                                    Err(e) => {
+                                        println!("Handshake failed {}", e);
+                                        return Err(AetherError::new(1011, "Handshake failed."));
                                     }
                                 }
                             }
-                            Err(e) => {
-                                println!("Handshake failed {}", e);
-                            }
+                            Err(_) => return Err(AetherError::new(1011, "Handshake failed.")),
                         }
 
                         // If unsuccessful store time of failure
@@ -478,7 +491,9 @@ fn handle_request(
                                 }),
                             );
                         }
+                        Ok(())
                     });
+                    Ok(())
                 }
                 Connection::Failed(failed) => {
                     let delta = thread_rng().gen_range(0..DELTA_TIME);
@@ -505,10 +520,12 @@ fn handle_request(
                         (*connections_lock)
                             .insert(failed.username.clone(), Connection::Failed(failed));
                     }
+                    Ok(())
                 }
                 other => {
                     // If in other state, insert back the value
                     (*connections_lock).insert(request.username.clone(), other);
+                    Ok(())
                 }
             }
         }
@@ -542,6 +559,7 @@ fn handle_request(
             (*connections_lock).insert(request.username.clone(), Connection::Init(connection));
 
             (*req_lock).push_back(request);
+            Ok(())
         }
     }
 }

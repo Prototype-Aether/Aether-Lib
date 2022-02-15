@@ -44,9 +44,8 @@ mod tests {
             code: 9002,
             description: "Some Error",
         };
-        
         assert_eq!(format!("{:?}", err1), "E9002: Some Error");
-        // assert_eq!(format!("{:?}", err3), 
-            // "E9032: Top level error\nCause: E9023: Middle level error\nCause: E9002: Bottom level error");
+        // assert_eq!(format!("{:?}", err3),
+        // "E9032: Top level error\nCause: E9023: Middle level error\nCause: E9002: Bottom level error");
     }
 }

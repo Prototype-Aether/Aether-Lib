@@ -146,7 +146,7 @@ impl Link {
         } {}
     }
 
-    pub fn send(&self, buf: Vec<u8>) {
+    pub fn send(&self, buf: Vec<u8>) -> Result<(), AetherError> {
         // Lock seq number
         match self.send_seq.lock() {
             Ok(ref mut seq_lock) => {
@@ -163,15 +163,17 @@ impl Link {
                 packet.append_payload(buf);
 
                 // Lock the primary queue
-                let mut queue_lock = self
-                    .primary_queue
-                    .lock()
-                    .expect("Unable to lock primary queue");
+                match self.primary_queue.lock() {
+                    Ok(ref mut queue_lock) => {
+                        (*queue_lock).push_back(packet);
+                        Ok(())
+                    }
+                    Err(_) => Err(AetherError::new(1003, "Failed to lock mutex.")),
+                }
 
                 // Push the new packet onto the primary queue
-                (*queue_lock).push_back(packet);
             }
-            Err(_) => {}
+            Err(_) => Err(AetherError::new(1003, "Failed to lock mutex.")),
         }
     }
 
