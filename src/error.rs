@@ -1,3 +1,4 @@
+//! Structures to represent errors in `aether_lib`
 use std::fmt::{Debug, Display, Formatter, Result};
 
 pub struct AetherError {

@@ -3,19 +3,17 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use crate::{acknowledgement::Acknowledgement, packet::Packet};
+use crate::{acknowledgement::Acknowledgement, config::Config, packet::Packet};
 use crate::{link::Link, packet::PType};
 
 use rand::{thread_rng, Rng};
-
-const INITIATE_DELAY: u64 = 500;
-const HANDSHAKE_TIMEOUT: u64 = 5_000;
 
 pub fn handshake(
     socket: UdpSocket,
     address: SocketAddr,
     my_username: String,
     peer_username: String,
+    config: Config,
 ) -> Result<Link, u8> {
     let seq = thread_rng().gen_range(0..(1 << 16 as u32)) as u32;
     let recv_seq: u32;
@@ -23,7 +21,7 @@ pub fn handshake(
     let ack: bool;
 
     socket
-        .set_read_timeout(Some(Duration::from_millis(INITIATE_DELAY)))
+        .set_read_timeout(Some(Duration::from_millis(config.handshake.peer_poll_time)))
         .expect("Unable to set read timeout");
 
     let mut packet = Packet::new(PType::Initiation, seq);
@@ -36,7 +34,7 @@ pub fn handshake(
     loop {
         let elapsed = now.elapsed().expect("Unable to get system time");
 
-        if elapsed.as_millis() > HANDSHAKE_TIMEOUT.into() {
+        if elapsed.as_millis() > config.handshake.handshake_timeout.into() {
             return Err(255);
         }
 
@@ -82,7 +80,7 @@ pub fn handshake(
         loop {
             let elapsed = now.elapsed().expect("Unable to get system time");
 
-            if elapsed.as_millis() > HANDSHAKE_TIMEOUT.into() {
+            if elapsed.as_millis() > config.handshake.handshake_timeout.into() {
                 return Err(254);
             }
 
@@ -113,7 +111,7 @@ pub fn handshake(
     }
 
     // Start the link
-    let mut link = Link::new(socket, address.clone(), seq, recv_seq);
+    let mut link = Link::new(socket, address.clone(), seq, recv_seq, config);
 
     link.start();
 
