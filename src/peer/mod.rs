@@ -134,37 +134,32 @@ impl Aether {
         match self.connections.lock() {
             Ok(ref mut connections_lock) => match (*connections_lock).get_mut(username) {
                 Some(connection) => match connection {
-                    Connection::Connected(peer) => {
-                        match peer.link.recv() {
-                            Ok(recv_vec) => {
-                                log::info!("Link Receive Module succesfully initialized.");
-                                Ok(recv_vec)
-                            }
-                            Err(aether_error) => {
-                                Err(AetherError {
-                                    code: 1004,
-                                    description: String::from("Failed to initialize Module."),
-                                    cause: Some(Box::new(aether_error)), // How  should we add aether_error?
-                                })
-                            }
+                    Connection::Connected(peer) => match peer.link.recv() {
+                        Ok(recv_vec) => {
+                            log::info!("Link Receive Module succesfully initialized.");
+                            Ok(recv_vec)
                         }
-                    }
+                        Err(aether_error) => {
+                            log::error!("{}", aether_error);
+                            Err(AetherError {
+                                code: 1005,
+                                description: "User not connected. Connection could not be established.",
+                            })
+                        }
+                    },
                     _ => Err(AetherError {
-                        code: 1004,
-                        description: String::from("Failed to initialize Module."),
-                        cause: None,
+                        code: 1005,
+                        description: "User not connected. Connection could not be established.",
                     }),
                 },
                 None => Err(AetherError {
                     code: 1005,
-                    description: String::from("Failed to retrieve mutex lock of user."),
-                    cause: None,
+                    description: "User not connected. Connection could not be established.",
                 }),
             },
             Err(_) => Err(AetherError {
                 code: 1003,
-                description: String::from("Failed to lock mutex."),
-                cause: None,
+                description: "Failed to lock mutex.",
             }),
         }
     }
@@ -457,10 +452,7 @@ fn handle_request(
                                         log::error!("Failed to authenticate user.");
                                         AetherError {
                                             code: 1006,
-                                            description: String::from(
-                                                "Failed to authenticate user.",
-                                            ),
-                                            cause: Some(Box::new(aether_error)),
+                                            description: "Failed to authenticate user.",
                                         };
                                     }
                                 }

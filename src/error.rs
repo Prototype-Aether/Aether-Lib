@@ -2,17 +2,12 @@ use std::fmt::{Debug, Display, Formatter, Result};
 
 pub struct AetherError {
     pub code: u16,
-    pub description: String,
-    pub cause: Option<Box<AetherError>>,
+    pub description: &'static str,
 }
 
 impl AetherError {
-    pub fn new(_code: u16, _description: String, _cause: Option<Box<AetherError>>) -> AetherError {
-        AetherError {
-            code: _code,
-            description: String::from(_description),
-            cause: _cause,
-        }
+    pub fn new(code: u16, description: &'static str) -> AetherError {
+        AetherError { code, description }
     }
 }
 
@@ -24,14 +19,7 @@ impl Display for AetherError {
 
 impl Debug for AetherError {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        match self.cause {
-            Some(ref error) => {
-                write!(f, "{}\nCause: {:?}", self, *error)
-            }
-            None => {
-                write!(f, "{}", self)
-            }
-        }
+        write!(f, "{}", self)
     }
 }
 
@@ -43,8 +31,7 @@ mod tests {
     fn display_test() {
         let err = AetherError {
             code: 9001,
-            description: String::from("Test error"),
-            cause: None,
+            description: "Test error",
         };
 
         assert_eq!(format!("{}", err), "E9001: Test error");
@@ -55,21 +42,18 @@ mod tests {
     fn debug_test() {
         let err1 = AetherError {
             code: 9002,
-            description: String::from("Bottom level error"),
-            cause: None,
+            description: "Bottom level error",
         };
         let err2 = AetherError {
             code: 9023,
-            description: String::from("Middle level error"),
-            cause: Some(Box::new(err1)),
+            description: "Middle level error",
         };
         let err3 = AetherError {
             code: 9032,
-            description: String::from("Top level error"),
-            cause: Some(Box::new(err2)),
+            description: "Top level error",
         };
 
-        assert_eq!(format!("{:?}", err3), 
-            "E9032: Top level error\nCause: E9023: Middle level error\nCause: E9002: Bottom level error");
+        // assert_eq!(format!("{:?}", err3), 
+            // "E9032: Top level error\nCause: E9023: Middle level error\nCause: E9002: Bottom level error");
     }
 }

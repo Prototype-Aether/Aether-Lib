@@ -17,8 +17,8 @@ mod tests {
         peer_addr1.set_ip(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)));
         peer_addr2.set_ip(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)));
 
-        let mut link1 = Link::new(socket1, peer_addr2, 0, 1000);
-        let mut link2 = Link::new(socket2, peer_addr1, 1000, 0);
+        let mut link1 = Link::new(socket1, peer_addr2, 0, 1000).unwrap();
+        let mut link2 = Link::new(socket2, peer_addr1, 1000, 0).unwrap();
 
         println!("{:?} {:?}", peer_addr1, peer_addr2);
 

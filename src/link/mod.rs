@@ -61,8 +61,7 @@ impl Link {
             Err(_) => {
                 let aether_error = AetherError {
                     code: 1006,
-                    description: String::from("Failed to set timeout."),
-                    cause: None,
+                    description: "Failed to set timeout.",
                 };
                 log::error!("{}", aether_error);
                 return Err(aether_error);
@@ -149,27 +148,31 @@ impl Link {
 
     pub fn send(&self, buf: Vec<u8>) {
         // Lock seq number
-        let mut seq_lock = self.send_seq.lock().expect("Unable to lock seq");
-        // Increase sequence number
-        (*seq_lock) += 1;
+        match self.send_seq.lock() {
+            Ok(ref mut seq_lock) => {
+                // Increase sequence number
+                (**seq_lock) += 1;
 
-        let seq: u32 = *seq_lock;
+                let seq: u32 = **seq_lock;
 
-        // Unlock seq
-        drop(seq_lock);
+                // Unlock seq
+                drop(seq_lock);
 
-        // Create a new packet to be sent
-        let mut packet = Packet::new(PType::Data, seq);
-        packet.append_payload(buf);
+                // Create a new packet to be sent
+                let mut packet = Packet::new(PType::Data, seq);
+                packet.append_payload(buf);
 
-        // Lock the primary queue
-        let mut queue_lock = self
-            .primary_queue
-            .lock()
-            .expect("Unable to lock primary queue");
+                // Lock the primary queue
+                let mut queue_lock = self
+                    .primary_queue
+                    .lock()
+                    .expect("Unable to lock primary queue");
 
-        // Push the new packet onto the primary queue
-        (*queue_lock).push_back(packet);
+                // Push the new packet onto the primary queue
+                (*queue_lock).push_back(packet);
+            }
+            Err(_) => {}
+        }
     }
 
     pub fn set_read_timout(&mut self, timeout: Duration) {
@@ -187,8 +190,7 @@ impl Link {
                 if stop {
                     let aether_error = AetherError {
                         code: 1001,
-                        description: String::from("Link Module Terminated."),
-                        cause: None,
+                        description: "Link Module Terminated.",
                     };
                     //log::error!("{}",aether_error);
                     Err(aether_error)
@@ -200,8 +202,7 @@ impl Link {
                                 if elapsed > timeout {
                                     let aether_error = AetherError {
                                         code: 1002,
-                                        description: String::from("Function timed out"),
-                                        cause: None,
+                                        description: "Function timed out",
                                     };
                                     log::error!("{}", aether_error);
                                     break Err(aether_error);
@@ -222,16 +223,10 @@ impl Link {
                                                 }
                                             };
                                         }
-                                        Err(e) => {
-                                            let system_error = AetherError {
-                                                code: 1003,
-                                                description: e.to_string(),
-                                                cause: None,
-                                            };
+                                        Err(_) => {
                                             let aether_error = AetherError {
                                                 code: 1003,
-                                                description: String::from("Failed to lock mutex."),
-                                                cause: Option::from(Box::new(system_error)),
+                                                description: "Failed to lock mutex.",
                                             };
                                             log::error!("{}", aether_error);
                                             break Err(aether_error);
@@ -242,10 +237,8 @@ impl Link {
                             Err(_) => {
                                 let aether_error = AetherError {
                                     code: 1000,
-                                    description: String::from(
+                                    description:
                                         "System Time may have changed during initialization.",
-                                    ),
-                                    cause: None,
                                 };
                                 log::error!("{}", aether_error);
                                 break Err(aether_error);
@@ -257,8 +250,7 @@ impl Link {
             Err(_) => {
                 let aether_error = AetherError {
                     code: 1003,
-                    description: String::from("Failed to lock mutex."),
-                    cause: None,
+                    description: "Failed to lock mutex.",
                 };
                 log::error!("{}", aether_error);
                 Err(aether_error)
@@ -274,12 +266,7 @@ impl Link {
                 let now = SystemTime::now();
 
                 if stop {
-                    let aether_error = AetherError {
-                        code: 1001,
-                        description: String::from("Link Module terminated."),
-                        cause: None,
-                    };
-                    Err(aether_error)
+                    Err(AetherError::new(1001, "Link Receive module stopped."))
                 } else {
                     // Pop the next packet from output queue
                     loop {
@@ -288,20 +275,18 @@ impl Link {
                                 match now.elapsed() {
                                     Ok(elapsed) => {
                                         if elapsed > time {
-                                            let aether_error = AetherError {
-                                                code: 1002,
-                                                description: String::from("Function timed out"),
-                                                cause: None,
-                                            };
-                                            log::error!("{}", aether_error);
-                                            break Err(aether_error);
+                                            break Err(AetherError::new(
+                                                1002,
+                                                "Function timed out",
+                                            ));
                                         }
                                     }
-                                    Err(e) => {
-                                        let sys_error = AetherError::new(1000, e.to_string(), None);
-                                        let aether_error = AetherError::new(1000, String::from("System Time may have changed during initialization."), Option::from(Box::new(sys_error)));
-                                        log::error!("{}", aether_error);
-                                        break Err(aether_error);
+                                    Err(_) => {
+                                        // let sys_error = AetherError::new(1000, e.to_string(), None);
+                                        break Err(AetherError::new(
+                                            1000,
+                                            "System Time may have changed during initialization",
+                                        ));
                                     }
                                 }
                             }
@@ -323,24 +308,13 @@ impl Link {
                                 };
                             }
                             Err(_) => {
-                                let aether_error = AetherError::new(
-                                    1003,
-                                    String::from("Failed to lock mutex."),
-                                    None,
-                                );
-                                log::error!("{}", aether_error);
-                                break Err(aether_error);
+                                break Err(AetherError::new(1003, "Failed to lock mutex."));
                             }
                         }
                     }
                 }
             }
-            Err(_) => {
-                let aether_error =
-                    AetherError::new(1003, String::from("Failed to lock mutex."), None);
-                log::error!("{}", aether_error);
-                Err(aether_error)
-            }
+            Err(_) => Err(AetherError::new(1003, "Failed to lock mutex.")),
         }
     }
 
@@ -353,15 +327,13 @@ impl Link {
                 match self.batch_empty.lock() {
                     Ok(batch_lock) => Ok(result && (*batch_lock)),
                     Err(_) => {
-                        let aether_error =
-                            AetherError::new(1003, String::from("Failed to lock mutex."), None);
+                        let aether_error = AetherError::new(1003, "Failed to lock mutex.");
                         Err(aether_error)
                     }
                 }
             }
             Err(_) => {
-                let aether_error =
-                    AetherError::new(1003, String::from("Failed to lock mutex."), None);
+                let aether_error = AetherError::new(1003, "Failed to lock mutex.");
                 Err(aether_error)
             }
         }
@@ -373,11 +345,9 @@ impl Link {
                 Ok(is_empty) => {
                     if is_empty {
                         thread::sleep(Duration::from_millis(ACK_WAIT_TIME));
-                        Ok(());
+                        break Ok(());
                     }
-                    else{
-                        thread::sleep(Duration::from_micros(POLL_TIME_US));
-                    }
+                    thread::sleep(Duration::from_micros(POLL_TIME_US));
                 }
                 Err(aether_error) => break Err(aether_error),
             }

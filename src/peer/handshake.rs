@@ -113,7 +113,7 @@ pub fn handshake(
     }
 
     // Start the link
-    let mut link = Link::new(socket, address.clone(), seq, recv_seq).expect("Unable to initialize Link Module.");
+    let mut link = Link::new(socket, address.clone(), seq, recv_seq).unwrap();
 
     link.start();
 
