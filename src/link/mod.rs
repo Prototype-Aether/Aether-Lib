@@ -12,18 +12,12 @@ use std::time::Duration;
 use std::time::SystemTime;
 
 use crate::acknowledgement::{AcknowledgementCheck, AcknowledgementList};
+use crate::config::Config;
 use crate::error::AetherError;
 use crate::link::receivethread::ReceiveThread;
 use crate::link::sendthread::SendThread;
 use crate::packet::PType;
 use crate::packet::Packet;
-
-pub const WINDOW_SIZE: u8 = 20;
-pub const ACK_WAIT_TIME: u64 = 1000;
-pub const POLL_TIME_US: u64 = 100;
-pub const TIMEOUT: u64 = 10_000;
-pub const RETRY_DELAY: u64 = 100;
-pub const MAX_RETRIES: i16 = 10;
 
 pub fn needs_ack(packet: &Packet) -> bool {
     match packet.flags.p_type {
@@ -46,6 +40,7 @@ pub struct Link {
     stop_flag: Arc<Mutex<bool>>,
     batch_empty: Arc<Mutex<bool>>,
     read_timeout: Option<Duration>,
+    config: Config,
 }
 
 impl Link {
@@ -54,7 +49,8 @@ impl Link {
         peer_addr: SocketAddr,
         send_seq: u32,
         recv_seq: u32,
-    ) -> Result<Link, AetherError> {
+        config: Config,
+    ) -> Link {
         let socket = Arc::new(socket);
         match socket.set_read_timeout(Some(Duration::from_secs(1))) {
             Ok(_) => {}
@@ -86,7 +82,8 @@ impl Link {
             stop_flag,
             batch_empty,
             read_timeout: None,
-        })
+            config,
+        }
     }
 
     pub fn start(&mut self) {
@@ -100,6 +97,7 @@ impl Link {
             self.ack_list.clone(),
             self.send_seq.clone(),
             self.batch_empty.clone(),
+            self.config,
         );
 
         // Start the send thread
@@ -116,6 +114,7 @@ impl Link {
             self.ack_check.clone(),
             self.ack_list.clone(),
             self.recv_seq.clone(),
+            self.config,
         );
 
         // Start the receive thread
@@ -214,13 +213,12 @@ impl Link {
                                             let result = queue_lock.pop_front();
 
                                             drop(queue_lock);
-
                                             // Get payload out of the packet and return
                                             match result {
                                                 Some(packet) => break Ok(packet.payload),
                                                 None => {
                                                     thread::sleep(Duration::from_micros(
-                                                        POLL_TIME_US,
+                                                        self.config.link.poll_time_us,
                                                     ));
                                                 }
                                             };
@@ -305,7 +303,9 @@ impl Link {
                                 match result {
                                     Some(packet) => break Ok(packet.payload),
                                     None => {
-                                        thread::sleep(Duration::from_micros(POLL_TIME_US));
+                                        thread::sleep(Duration::from_micros(
+                                            self.config.link.poll_time_us,
+                                        ));
                                     }
                                 };
                             }
@@ -343,16 +343,11 @@ impl Link {
 
     pub fn wait(&self) -> Result<(), AetherError> {
         loop {
-            match self.is_empty() {
-                Ok(is_empty) => {
-                    if is_empty {
-                        thread::sleep(Duration::from_millis(ACK_WAIT_TIME));
-                        break Ok(());
-                    }
-                    thread::sleep(Duration::from_micros(POLL_TIME_US));
-                }
-                Err(aether_error) => break Err(aether_error),
+            if self.is_empty() {
+                thread::sleep(Duration::from_millis(self.config.link.ack_wait_time));
+                break;
             }
+            thread::sleep(Duration::from_micros(self.config.link.poll_time_us));
         }
     }
 }

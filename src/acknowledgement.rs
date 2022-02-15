@@ -1,3 +1,5 @@
+//! Structures for facilitating storing acknowledgment numbers for verification and
+//! sending
 use std::collections::HashMap;
 
 /// Structure to reperesent the Acknowledgement format

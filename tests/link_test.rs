@@ -3,6 +3,7 @@ mod tests {
     use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
     use std::thread;
 
+    use aether_lib::config::Config;
     use aether_lib::link::Link;
     use aether_lib::peer::handshake::handshake;
     #[test]
@@ -17,8 +18,8 @@ mod tests {
         peer_addr1.set_ip(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)));
         peer_addr2.set_ip(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)));
 
-        let mut link1 = Link::new(socket1, peer_addr2, 0, 1000).unwrap();
-        let mut link2 = Link::new(socket2, peer_addr1, 1000, 0).unwrap();
+        let mut link1 = Link::new(socket1, peer_addr2, 0, 1000, Config::default());
+        let mut link2 = Link::new(socket2, peer_addr1, 1000, 0, Config::default());
 
         println!("{:?} {:?}", peer_addr1, peer_addr2);
 
@@ -82,6 +83,7 @@ mod tests {
                 peer_addr2,
                 String::from("peer1"),
                 String::from("peer2"),
+                Config::default(),
             )
             .expect("Handshake failed");
 
@@ -107,6 +109,7 @@ mod tests {
                 peer_addr1,
                 String::from("peer2"),
                 String::from("peer1"),
+                Config::default(),
             )
             .expect("Handshake failed");
 

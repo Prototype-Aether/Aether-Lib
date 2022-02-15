@@ -7,9 +7,8 @@ use std::thread;
 use std::time::Duration;
 
 use crate::acknowledgement::{AcknowledgementCheck, AcknowledgementList};
-use crate::link::MAX_RETRIES;
-use crate::link::RETRY_DELAY;
-use crate::link::{needs_ack, WINDOW_SIZE};
+use crate::config::Config;
+use crate::link::needs_ack;
 use crate::packet::PType;
 use crate::packet::Packet;
 use crate::packet::PacketMeta;
@@ -27,6 +26,8 @@ pub struct SendThread {
     ack_check: Arc<Mutex<AcknowledgementCheck>>,
 
     send_seq: Arc<Mutex<u32>>,
+
+    config: Config,
 }
 
 impl SendThread {
@@ -39,6 +40,7 @@ impl SendThread {
         ack_list: Arc<Mutex<AcknowledgementList>>,
         send_seq: Arc<Mutex<u32>>,
         is_empty: Arc<Mutex<bool>>,
+        config: Config,
     ) -> SendThread {
         SendThread {
             batch_queue: VecDeque::new(),
@@ -50,6 +52,7 @@ impl SendThread {
             ack_list,
             send_seq,
             is_empty,
+            config,
         }
     }
 
@@ -77,7 +80,7 @@ impl SendThread {
                             // will be sent again
                             let retry_count = packet.meta.retry_count + 1;
 
-                            if retry_count >= MAX_RETRIES {
+                            if retry_count >= self.config.link.max_retries {
                                 // Stop connection if too many retries
                                 let mut flag_lock =
                                     self.stop_flag.lock().expect("Error locking stop flag");
@@ -87,7 +90,7 @@ impl SendThread {
 
                                 meta_packet.set_meta(PacketMeta {
                                     retry_count,
-                                    delay_ms: RETRY_DELAY,
+                                    delay_ms: self.config.link.retry_delay,
                                 });
 
                                 self.batch_queue.push_back(meta_packet);
@@ -154,7 +157,7 @@ impl SendThread {
         // Lock primary queue and dequeue the packet
         let mut queue = self.primary_queue.lock().expect("Error locking queue");
 
-        for _ in 0..WINDOW_SIZE {
+        for _ in 0..self.config.link.window_size {
             match (*queue).pop_front() {
                 Some(packet) => self.batch_queue.push_back(packet),
                 None => break,

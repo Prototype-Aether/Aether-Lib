@@ -12,22 +12,22 @@ use std::net::{IpAddr, Ipv4Addr, UdpSocket};
 
 use rand::{thread_rng, Rng};
 
+use crate::config::Config;
 use crate::tracker::TrackerPacket;
 use crate::{error::AetherError, link::Link, tracker::ConnectionRequest};
 
 use self::handshake::handshake;
 
-pub const SERVER_RETRY_DELAY: u64 = 1000;
-pub const SERVER_POLL_TIME: u64 = 1000;
-pub const HANDSHAKE_RETRY_DELAY: u64 = 5000;
-pub const CONNECTION_CHECK_DELAY: u64 = 1000;
-pub const DELTA_TIME: u64 = 100;
-pub const POLL_TIME_US: u64 = 100;
-
+/// Enumeration representing different states of a connection
 pub enum Connection {
+    /// Initialized state - connection has been initialized and is waiting to receive
+    /// other peer's public identity
     Init(Initialized),
+    /// Handshake state - handshake with the other peer is in progress
     Handshake,
+    /// Connected state - a connection to the other peer has been established
     Connected(Peer),
+    /// Failed state - a connection to the other peer had failed and would be retried
     Failed(Failure),
 }
 
@@ -74,14 +74,20 @@ pub struct Aether {
     requests: Arc<Mutex<VecDeque<ConnectionRequest>>>,
     /// Address of the tracker server
     tracker_addr: SocketAddr,
+    /// List of peers related to this peer
     connections: Arc<Mutex<HashMap<String, Connection>>>,
+    /// Configuration
+    config: Config,
 }
 
 impl Aether {
     pub fn new(username: String, tracker_addr: SocketAddr) -> Aether {
+        let config = Config::get_config().expect("Error getting config");
         let socket = Arc::new(UdpSocket::bind(("0.0.0.0", 0)).unwrap());
         socket
-            .set_read_timeout(Some(Duration::from_millis(SERVER_RETRY_DELAY)))
+            .set_read_timeout(Some(Duration::from_millis(
+                config.aether.server_retry_delay,
+            )))
             .expect("Unable to set read timeout");
         Aether {
             username,
@@ -89,12 +95,12 @@ impl Aether {
             tracker_addr,
             socket,
             connections: Arc::new(Mutex::new(HashMap::new())),
+            config,
         }
     }
 
     pub fn start(&self) {
         println!("Starting aether service...");
-        println!("Failure fix");
         self.connection_poll();
         self.handle_sockets();
         self.handle_requests();
@@ -169,7 +175,9 @@ impl Aether {
         if !self.is_initialized(username) {
             if self.is_connecting(username) {
                 while self.is_connecting(username) {
-                    thread::sleep(Duration::from_millis(CONNECTION_CHECK_DELAY));
+                    thread::sleep(Duration::from_millis(
+                        self.config.aether.connection_check_delay,
+                    ));
                 }
                 Ok(0)
             } else {
@@ -181,7 +189,9 @@ impl Aether {
             }
         } else {
             while !self.is_connected(username) {
-                thread::sleep(Duration::from_millis(CONNECTION_CHECK_DELAY));
+                thread::sleep(Duration::from_millis(
+                    self.config.aether.connection_check_delay,
+                ));
             }
             Ok(0)
         }
@@ -232,6 +242,7 @@ impl Aether {
         let my_username = self.username.clone();
         let connections = self.connections.clone();
         let tracker_addr = self.tracker_addr.clone();
+        let config = self.config;
         thread::spawn(move || {
             loop {
                 // Lock connections list
@@ -262,7 +273,7 @@ impl Aether {
 
                 // Unlock initailized list
                 drop(connections_lock);
-                thread::sleep(Duration::from_millis(SERVER_POLL_TIME));
+                thread::sleep(Duration::from_millis(config.aether.server_poll_time));
             }
         });
     }
@@ -305,6 +316,8 @@ impl Aether {
 
         let requests = self.requests.clone();
 
+        let config = self.config;
+
         thread::spawn(move || loop {
             socket
                 .send_to(&data_bytes, tracker_addr)
@@ -324,7 +337,7 @@ impl Aether {
                     (*req_lock).push_back(v);
                 }
 
-                thread::sleep(Duration::from_millis(SERVER_POLL_TIME));
+                thread::sleep(Duration::from_millis(config.aether.server_poll_time));
             }
         });
     }
@@ -334,27 +347,26 @@ impl Aether {
         let connections = self.connections.clone();
         let my_username = self.username.clone();
         let tracker_addr = self.tracker_addr.clone();
+        let config = self.config;
 
         thread::spawn(move || loop {
             let mut req_lock = requests.lock().expect("Unable to lock requests queue");
 
             // For each request received
             match (*req_lock).pop_front() {
-                Some(request) => {
-                    handle_request(
-                        request,
-                        my_username.clone(),
-                        &mut connections.clone(),
-                        tracker_addr,
-                        &mut req_lock,
-                    ).expect("Request Failed.");
-                }
-
+                Some(request) => handle_request(
+                    request,
+                    my_username.clone(),
+                    &mut connections.clone(),
+                    tracker_addr,
+                    &mut req_lock,
+                    config,
+                ),
                 None => (),
             }
 
             drop(req_lock);
-            thread::sleep(Duration::from_micros(POLL_TIME_US));
+            thread::sleep(Duration::from_micros(config.aether.poll_time_us));
         });
     }
 }
@@ -365,7 +377,8 @@ fn handle_request(
     connections: &mut Arc<Mutex<HashMap<String, Connection>>>,
     tracker_addr: SocketAddr,
     req_lock: &mut MutexGuard<VecDeque<ConnectionRequest>>,
-) -> Result<(), AetherError> {
+    config: Config,
+) {
     let mut connections_lock = connections.lock().expect("unable to lock failed list");
 
     // Check if connection exists in connection list
@@ -379,6 +392,8 @@ fn handle_request(
                     // Clone important data to pass to handshake thread
                     let connections_clone = connections.clone();
                     let my_username_clone = my_username.clone();
+
+                    let config_clone = config;
 
                     // Put current user in handshake state
                     (*connections_lock).insert(init.username.clone(), Connection::Handshake);
@@ -402,6 +417,7 @@ fn handle_request(
                             peer_addr,
                             my_username_clone.clone(),
                             peer_username.clone(),
+                            config_clone,
                         );
 
                         match link_result {
@@ -410,21 +426,20 @@ fn handle_request(
 
                                 // Authentication
                                 // Send own username
-                                match link.send(my_username_clone.clone().into_bytes()) {
-                                    Ok(_) => {
-                                        let delay = thread_rng().gen_range(0..DELTA_TIME);
+                                link.send(my_username_clone.clone().into_bytes());
+                                let delay =
+                                    thread_rng().gen_range(0..config_clone.aether.delta_time);
 
-                                        // Receive other peer's username
-                                        match link.recv_timeout(Duration::from_millis(
-                                            HANDSHAKE_RETRY_DELAY / 2 + delay,
-                                        )) {
-                                            Ok(recved) => {
-                                                println!("Received nonce");
-                                                let recved_username =
-                                                    match String::from_utf8(recved) {
-                                                        Ok(name) => name,
-                                                        Err(_) => String::from(""),
-                                                    };
+                                // Receive other peer's username
+                                match link.recv_timeout(Duration::from_millis(
+                                    config_clone.aether.handshake_retry_delay / 2 + delay,
+                                )) {
+                                    Ok(recved) => {
+                                        println!("Received nonce");
+                                        let recved_username = match String::from_utf8(recved) {
+                                            Ok(name) => name,
+                                            Err(_) => String::from(""),
+                                        };
 
                                                 // If correct authentication
                                                 if recved_username == peer_username {
@@ -496,7 +511,7 @@ fn handle_request(
                     Ok(())
                 }
                 Connection::Failed(failed) => {
-                    let delta = thread_rng().gen_range(0..DELTA_TIME);
+                    let delta = thread_rng().gen_range(0..config.aether.delta_time);
                     let elapsed = failed
                         .time
                         .elapsed()
@@ -505,7 +520,7 @@ fn handle_request(
 
                     // if elapsed time since the fail is greater than threshold
                     // then put back in initialized state
-                    if elapsed > (HANDSHAKE_RETRY_DELAY + delta).into() {
+                    if elapsed > (config.aether.handshake_retry_delay + delta).into() {
                         (*connections_lock).insert(
                             failed.username.clone(),
                             Connection::Init(Initialized {

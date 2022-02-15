@@ -8,8 +8,8 @@ use std::sync::Mutex;
 use std::time::SystemTime;
 
 use crate::acknowledgement::{AcknowledgementCheck, AcknowledgementList};
+use crate::config::Config;
 use crate::link::needs_ack;
-use crate::link::TIMEOUT;
 use crate::packet::PType;
 use crate::packet::Packet;
 
@@ -63,6 +63,8 @@ pub struct ReceiveThread {
     order_list: OrderList,
 
     _recv_seq: Arc<Mutex<u32>>,
+
+    config: Config,
 }
 
 impl ReceiveThread {
@@ -74,6 +76,7 @@ impl ReceiveThread {
         ack_check: Arc<Mutex<AcknowledgementCheck>>,
         ack_list: Arc<Mutex<AcknowledgementList>>,
         recv_seq: Arc<Mutex<u32>>,
+        config: Config,
     ) -> ReceiveThread {
         let recv_lock = recv_seq.lock().expect("Unable to lock recv_seq");
         let seq = *recv_lock;
@@ -89,6 +92,7 @@ impl ReceiveThread {
             ack_list,
             _recv_seq: recv_seq,
             order_list: OrderList::new(seq),
+            config,
         }
     }
 
@@ -127,7 +131,7 @@ impl ReceiveThread {
                 }
             } else {
                 let elapsed = now.elapsed().expect("unable to get system time");
-                if elapsed.as_millis() > TIMEOUT.into() {
+                if elapsed.as_millis() > self.config.link.timeout.into() {
                     let mut flag_lock = self.stop_flag.lock().expect("Error locking stop flag");
                     *flag_lock = true;
                 }
