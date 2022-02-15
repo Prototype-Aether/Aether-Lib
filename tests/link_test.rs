@@ -32,7 +32,7 @@ mod tests {
         }
 
         for x in &data {
-            link1.send(x.clone());
+            link1.send(x.clone()).unwrap();
         }
 
         let mut count = 0;
@@ -92,10 +92,10 @@ mod tests {
             }
 
             for x in &data {
-                link.send(x.clone());
+                link.send(x.clone()).unwrap();
             }
 
-            link.wait();
+            link.wait().unwrap();
             println!("Stopping sender");
 
             data
