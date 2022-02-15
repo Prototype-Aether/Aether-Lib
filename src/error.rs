@@ -42,17 +42,10 @@ mod tests {
     fn debug_test() {
         let err1 = AetherError {
             code: 9002,
-            description: "Bottom level error",
+            description: "Some Error",
         };
-        let err2 = AetherError {
-            code: 9023,
-            description: "Middle level error",
-        };
-        let err3 = AetherError {
-            code: 9032,
-            description: "Top level error",
-        };
-
+        
+        assert_eq!(format!("{:?}", err1), "E9002: Some Error");
         // assert_eq!(format!("{:?}", err3), 
             // "E9032: Top level error\nCause: E9023: Middle level error\nCause: E9002: Bottom level error");
     }
