@@ -394,7 +394,7 @@ fn handle_request(
                         let peer_addr = SocketAddr::new(peer_ip, request.port);
                         let peer_username = request.username;
 
-                        let mut success = false;
+                        let mut success = false; // This bool DOES in fact get read and modified. Not sure why compiler doesn't recognize its usage.
 
                         // Start handshake
                         let link_result = handshake(
