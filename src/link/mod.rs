@@ -13,6 +13,7 @@ use std::time::SystemTime;
 
 use crate::acknowledgement::{AcknowledgementCheck, AcknowledgementList};
 use crate::config::Config;
+use crate::error::AetherError;
 use crate::link::receivethread::ReceiveThread;
 use crate::link::sendthread::SendThread;
 use crate::packet::PType;
@@ -165,75 +166,172 @@ impl Link {
         self.read_timeout = Some(timeout);
     }
 
-    pub fn recv_timeout(&self, timeout: Duration) -> Result<Vec<u8>, u8> {
-        let flag_lock = self.stop_flag.lock().expect("Error locking stop flag");
-        let stop = *flag_lock;
-        drop(flag_lock);
+    pub fn recv_timeout(&self, timeout: Duration) -> Result<Vec<u8>, AetherError> {
+        match self.stop_flag.lock() {
+            Ok(flag_lock) => {
+                let stop = *flag_lock;
+                drop(flag_lock);
 
-        let now = SystemTime::now();
+                let now = SystemTime::now();
 
-        if stop {
-            Err(255)
-        } else {
-            // Pop the next packet from output queue
-            loop {
-                let elapsed = now.elapsed().expect("unable to get system time");
-                if elapsed > timeout {
-                    break Err(255);
-                }
+                if stop {
+                    let aether_error = AetherError {
+                        code: 1001,
+                        description: String::from("Link Module Terminated."),
+                        cause: None,
+                    };
+                    //log::error!("{}",aether_error);
+                    Err(aether_error)
+                } else {
+                    // Pop the next packet from output queue
+                    loop {
+                        match now.elapsed() {
+                            Ok(elapsed) => {
+                                if elapsed > timeout {
+                                    let aether_error = AetherError {
+                                        code: 1002,
+                                        description: String::from("Function timed out"),
+                                        cause: None,
+                                    };
+                                    log::error!("{}", aether_error);
+                                    break Err(aether_error);
+                                } else {
+                                    match self.output_queue.lock() {
+                                        Ok(mut queue_lock) => {
+                                            let result = queue_lock.pop_front();
 
-                let mut queue_lock = self.output_queue.lock().expect("Cannot lock output queue");
-
-                let result = queue_lock.pop_front();
-
-                drop(queue_lock);
-
-                // Get payload out of the packet and return
-                match result {
-                    Some(packet) => break Ok(packet.payload),
-                    None => {
-                        thread::sleep(Duration::from_micros(self.config.link.poll_time_us));
+                                            drop(queue_lock);
+                                            // Get payload out of the packet and return
+                                            match result {
+                                                Some(packet) => break Ok(packet.payload),
+                                                None => {
+                                                    thread::sleep(Duration::from_micros(
+                                                        self.config.link.poll_time_us,
+                                                    ));
+                                                }
+                                            };
+                                        }
+                                        Err(_) => {
+                                            let aether_error = AetherError {
+                                                code: 1003,
+                                                description: String::from("Failed to lock mutex."),
+                                                cause: None,
+                                            };
+                                            log::error!("{}", aether_error);
+                                            break Err(aether_error);
+                                        }
+                                    }
+                                }
+                            }
+                            Err(_) => {
+                                let aether_error = AetherError {
+                                    code: 1000,
+                                    description: String::from(
+                                        "System Time may have changed during initialization.",
+                                    ),
+                                    cause: None,
+                                };
+                                log::error!("{}", aether_error);
+                                break Err(aether_error);
+                            }
+                        }
                     }
+                }
+            }
+            Err(_) => {
+                let aether_error = AetherError {
+                    code: 1003,
+                    description: String::from("Failed to lock mutex."),
+                    cause: None,
                 };
+                log::error!("{}", aether_error);
+                Err(aether_error)
             }
         }
     }
+    pub fn recv(&self) -> Result<Vec<u8>, AetherError> {
+        match self.stop_flag.lock() {
+            Ok(flag_lock) => {
+                let stop = *flag_lock;
+                drop(flag_lock);
 
-    pub fn recv(&self) -> Result<Vec<u8>, u8> {
-        let flag_lock = self.stop_flag.lock().expect("Error locking stop flag");
-        let stop = *flag_lock;
-        drop(flag_lock);
+                let now = SystemTime::now();
 
-        let now = SystemTime::now();
+                if stop {
+                    let aether_error = AetherError {
+                        code: 1001,
+                        description: String::from("Link Module terminated."),
+                        cause: None,
+                    };
+                    Err(aether_error)
+                } else {
+                    // Pop the next packet from output queue
+                    loop {
+                        match self.read_timeout {
+                            Some(time) => match now.elapsed() {
+                                Ok(elapsed) => {
+                                    if elapsed > time {
+                                        let aether_error = AetherError {
+                                            code: 1002,
+                                            description: String::from("Function timed out"),
+                                            cause: None,
+                                        };
+                                        log::error!("{}", aether_error);
+                                        break Err(aether_error);
+                                    }
+                                }
+                                Err(_) => {
+                                    let aether_error = AetherError {
+                                        code: 1000,
+                                        description: String::from(
+                                            "System Time may have changed during initialization.",
+                                        ),
+                                        cause: None,
+                                    };
+                                    log::error!("{}", aether_error);
+                                    break Err(aether_error);
+                                }
+                            },
+                            None => (),
+                        }
 
-        if stop {
-            Err(255)
-        } else {
-            // Pop the next packet from output queue
-            loop {
-                match self.read_timeout {
-                    Some(time) => {
-                        let elapsed = now.elapsed().expect("unable to get system time");
-                        if elapsed > time {
-                            break Err(255);
+                        match self.output_queue.lock() {
+                            Ok(mut queue_lock) => {
+                                let result = queue_lock.pop_front();
+
+                                drop(queue_lock);
+
+                                // Get payload out of the packet and return
+                                match result {
+                                    Some(packet) => break Ok(packet.payload),
+                                    None => {
+                                        thread::sleep(Duration::from_micros(
+                                            self.config.link.poll_time_us,
+                                        ));
+                                    }
+                                };
+                            }
+                            Err(_) => {
+                                let aether_error = AetherError {
+                                    code: 1003,
+                                    description: String::from("Failed to lock mutex."),
+                                    cause: None,
+                                };
+                                log::error!("{}", aether_error);
+                                break Err(aether_error);
+                            }
                         }
                     }
-                    None => (),
                 }
-
-                let mut queue_lock = self.output_queue.lock().expect("Cannot lock output queue");
-
-                let result = queue_lock.pop_front();
-
-                drop(queue_lock);
-
-                // Get payload out of the packet and return
-                match result {
-                    Some(packet) => break Ok(packet.payload),
-                    None => {
-                        thread::sleep(Duration::from_micros(self.config.link.poll_time_us));
-                    }
+            }
+            Err(_) => {
+                let aether_error = AetherError {
+                    code: 1003,
+                    cause: None,
+                    description: String::from("Faled to lock mutex."),
                 };
+                log::error!("{}", aether_error);
+                Err(aether_error)
             }
         }
     }

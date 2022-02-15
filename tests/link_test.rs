@@ -124,8 +124,7 @@ mod tests {
                             break;
                         }
                     }
-                    Err(255) => panic!("Connection closed"),
-                    Err(_) => panic!("Unexpected error while receiving"),
+                    Err(aether_error) => panic!("Error {}: {}", aether_error.code, aether_error.description),
                 }
             }
 

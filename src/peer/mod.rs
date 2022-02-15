@@ -14,7 +14,7 @@ use rand::{thread_rng, Rng};
 
 use crate::config::Config;
 use crate::tracker::TrackerPacket;
-use crate::{link::Link, tracker::ConnectionRequest};
+use crate::{error::AetherError, link::Link, tracker::ConnectionRequest};
 
 use self::handshake::handshake;
 
@@ -136,15 +136,42 @@ impl Aether {
         }
     }
 
-    pub fn recv_from(&self, username: &String) -> Result<Vec<u8>, u8> {
-        let mut connections_lock = self.connections.lock().expect("unable to lock peers list");
-
-        match (*connections_lock).get_mut(username) {
-            Some(connection) => match connection {
-                Connection::Connected(peer) => peer.link.recv(),
-                _ => Err(3),
+    pub fn recv_from(&self, username: &String) -> Result<Vec<u8>, AetherError> {
+        match self.connections.lock() {
+            Ok(ref mut connections_lock) => match (*connections_lock).get_mut(username) {
+                Some(connection) => match connection {
+                    Connection::Connected(peer) => {
+                        match peer.link.recv() {
+                            Ok(recv_vec) => {
+                                log::info!("Link Receive Module succesfully initialized.");
+                                Ok(recv_vec)
+                            }
+                            Err(aether_error) => {
+                                Err(AetherError {
+                                    code: 1004,
+                                    description: String::from("Failed to initialize Module."),
+                                    cause: Some(Box::new(aether_error)), // How  should we add aether_error?
+                                })
+                            }
+                        }
+                    }
+                    _ => Err(AetherError {
+                        code: 1004,
+                        description: String::from("Failed to initialize Module."),
+                        cause: None,
+                    }),
+                },
+                None => Err(AetherError {
+                    code: 1005,
+                    description: String::from("Failed to retrieve mutex lock of user."),
+                    cause: None,
+                }),
             },
-            None => Err(1),
+            Err(_) => Err(AetherError {
+                code: 1003,
+                description: String::from("Failed to lock mutex."),
+                cause: None,
+            }),
         }
     }
 
@@ -446,10 +473,16 @@ fn handle_request(
                                             println!("Authentication failed");
                                         }
                                     }
-                                    Err(255) => {
-                                        println!("Authentication failed")
+                                    Err(aether_error) => {
+                                        log::error!("Failed to authenticate user.");
+                                        AetherError {
+                                            code: 1006,
+                                            description: String::from(
+                                                "Failed to authenticate user.",
+                                            ),
+                                            cause: Some(Box::new(aether_error)),
+                                        };
                                     }
-                                    _ => panic!("Unexpected error"),
                                 }
                             }
                             Err(e) => {
