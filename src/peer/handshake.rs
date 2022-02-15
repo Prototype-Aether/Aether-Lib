@@ -111,7 +111,7 @@ pub fn handshake(
     }
 
     // Start the link
-    let mut link = Link::new(socket, address.clone(), seq, recv_seq);
+    let mut link = Link::new(socket, address.clone(), seq, recv_seq, config);
 
     link.start();
 

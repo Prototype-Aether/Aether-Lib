@@ -20,11 +20,15 @@ use crate::error::AetherError;
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
 #[serde(default)]
 pub struct Config {
+    /// Configuration for [`peer`][crate::peer] module
     pub aether: AetherConfig,
+    /// Configuration for [`handshake`][crate::peer::handshake] module
     pub handshake: HandshakeConfig,
+    /// Configuration for [`link`][crate::link] module
+    pub link: LinkConfig,
 }
 
-/// Structure to represent configuration for [`Aether`][crate::peer::Aether]
+/// Structure to represent configuration for [`peer`][crate::peer] module
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
 #[serde(default)]
 pub struct AetherConfig {
@@ -45,8 +49,7 @@ pub struct AetherConfig {
     pub poll_time_us: u64,
 }
 
-/// Structure to represent configuration for [`handshake`][crate::peer::handshake::handshake]
-/// function
+/// Structure to represent configuration for [`handshake`][crate::peer::handshake] module
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
 #[serde(default)]
 pub struct HandshakeConfig {
@@ -56,6 +59,24 @@ pub struct HandshakeConfig {
     pub peer_poll_time: u64,
     /// Timeout after which handshake can be declared failed if not complete (in ms)
     pub handshake_timeout: u64,
+}
+
+/// Structure to represent configuration for [`link`][crate::link] module
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
+#[serde(default)]
+pub struct LinkConfig {
+    /// Window size for the link. Determines how many packets are sent in a single burst
+    pub window_size: u8,
+    /// Time to wait for acknowledgement to be received
+    pub ack_wait_time: u64,
+    /// Poll time for shared memory structures
+    pub poll_time_us: u64,
+    /// Timeout or time of inactivity after which link is declared as broken
+    pub timeout: u64,
+    /// Time to wait for acknowledgment before sending packets again
+    pub retry_delay: u64,
+    /// Number of times a packet can be retried before link is declared as broken
+    pub max_retries: i16,
 }
 
 impl Config {
@@ -155,8 +176,9 @@ impl TryFrom<Config> for String {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            aether: Default::default(),
-            handshake: Default::default(),
+            aether: AetherConfig::default(),
+            handshake: HandshakeConfig::default(),
+            link: LinkConfig::default(),
         }
     }
 }
@@ -181,6 +203,20 @@ impl Default for HandshakeConfig {
         Self {
             peer_poll_time: 500,
             handshake_timeout: 5_000,
+        }
+    }
+}
+
+/// Default values for ['LinkConfig`]
+impl Default for LinkConfig {
+    fn default() -> Self {
+        Self {
+            window_size: 20,
+            ack_wait_time: 1_000,
+            poll_time_us: 100,
+            timeout: 10_000,
+            retry_delay: 100,
+            max_retries: 10,
         }
     }
 }
