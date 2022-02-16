@@ -50,7 +50,7 @@ impl Link {
         send_seq: u32,
         recv_seq: u32,
         config: Config,
-    ) -> Link {
+    ) -> Result<Link, AetherError> {
         let socket = Arc::new(socket);
         match socket.set_read_timeout(Some(Duration::from_secs(1))) {
             Ok(_) => {}
@@ -83,7 +83,7 @@ impl Link {
             batch_empty,
             read_timeout: None,
             config,
-        }
+        })
     }
 
     pub fn start(&mut self) {
@@ -127,22 +127,29 @@ impl Link {
         self.thread_handles.push(recv_thread);
     }
 
-    pub fn stop(&mut self) {
+    pub fn stop(&mut self) -> Result<(), AetherError>{
         // Set the stop flag
-        let mut flag_lock = self.stop_flag.lock().expect("Unable to lock stop flag");
-        *flag_lock = true;
+        match self.stop_flag.lock() {
+            Ok(ref mut flag_lock) => {
+                **flag_lock = true;
 
-        // Unlock stop flag
-        drop(flag_lock);
+                // Unlock stop flag
+                drop(flag_lock);
 
-        // Join each thread
-        while match self.thread_handles.pop() {
-            Some(handle) => {
-                handle.join().expect("Thread failed to join");
-                true
+                // Join each thread
+                while match self.thread_handles.pop() {
+                    Some(handle) => {
+                        handle.join().expect("Thread failed to join");
+                        true
+                    }
+                    None => false,
+                } {}
+                Ok(())
             }
-            None => false,
-        } {}
+            Err(_) => Err(AetherError::new(1003,"Failed to lock mutex."))
+
+            
+        }
     }
 
     pub fn send(&self, buf: Vec<u8>) -> Result<(), AetherError> {
@@ -343,17 +350,29 @@ impl Link {
 
     pub fn wait(&self) -> Result<(), AetherError> {
         loop {
-            if self.is_empty() {
-                thread::sleep(Duration::from_millis(self.config.link.ack_wait_time));
-                break;
+            match self.is_empty() {
+                Ok(empty) => {
+                    if empty {
+                        thread::sleep(Duration::from_millis(self.config.link.ack_wait_time));
+                        break Ok(());
+                    } else {
+                        thread::sleep(Duration::from_micros(self.config.link.poll_time_us));
+                    }
+                }
+                Err(aether_error) => {
+                    log::error!("{}", aether_error);
+                    break Err(AetherError::new(999, "Unexpected error"));
+                }
             }
-            thread::sleep(Duration::from_micros(self.config.link.poll_time_us));
         }
     }
 }
 
 impl Drop for Link {
     fn drop(&mut self) {
-        self.stop();
+        match self.stop() {
+            Ok(_) => {},
+            Err(aether_error) => {log::error!("{}", aether_error)}
+        }
     }
 }
