@@ -3,15 +3,24 @@ mod tests {
 
     use std::{
         net::{IpAddr, Ipv4Addr, SocketAddr},
-        process::Command,
+        process::{Command, Stdio},
         thread,
     };
 
     use aether_lib::peer::Aether;
 
-    pub fn run(cmd: &str) {
-        let child = Command::new("sh").arg("-c").arg(cmd).spawn().unwrap();
-        let output = child.wait_with_output().unwrap();
+    pub fn run(cmd: &str, show_output: bool) {
+        let output = if show_output {
+            Command::new("sh")
+                .arg("-c")
+                .arg(cmd)
+                .spawn()
+                .unwrap()
+                .wait_with_output()
+                .unwrap()
+        } else {
+            Command::new("sh").arg("-c").arg(cmd).output().unwrap()
+        };
         println!(
             "{}\n{}",
             String::from_utf8(output.stdout).unwrap(),
@@ -23,8 +32,11 @@ mod tests {
     pub fn aether_test() {
         // Run the tracker server
         thread::spawn(|| {
-            run("rm -rf tmp && mkdir -p tmp && cd tmp && git clone https://github.com/Prototype-Aether/Aether-Tracker.git");
-            run("cd tmp/Aether-Tracker && cargo run --bin server 8000")
+            run("rm -rf tmp && mkdir -p tmp && cd tmp && git clone https://github.com/Prototype-Aether/Aether-Tracker.git", false);
+            run(
+                "cd tmp/Aether-Tracker && cargo run --bin server 8000",
+                false,
+            )
         });
 
         let tracker_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8000);

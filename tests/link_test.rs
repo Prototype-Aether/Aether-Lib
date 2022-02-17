@@ -135,9 +135,6 @@ mod tests {
         let recv = recv_thread.join().expect("Receive thread panicked");
 
         for i in 0..recv.len() {
-            let a = String::from_utf8(recv[i].clone()).unwrap();
-            let b = String::from_utf8(data[i].clone()).unwrap();
-            //println!("{} == {}", a, b);
             assert_eq!(recv[i], data[i]);
         }
 
