@@ -1,5 +1,6 @@
 use crate::{acknowledgement::Acknowledgement, config::Config, packet::Packet};
 use crate::{link::Link, packet::PType};
+use std::io::ErrorKind;
 use std::{
     net::{SocketAddr, UdpSocket},
     time::{Duration, SystemTime},
@@ -37,9 +38,15 @@ pub fn handshake(
             return Err(255);
         }
 
-        socket
-            .send_to(&sequence_data, address)
-            .expect("Couldn't send sequence");
+        loop {
+            match socket.send_to(&sequence_data, address) {
+                Ok(_) => break,
+                Err(err) => match err.kind() {
+                    ErrorKind::PermissionDenied => continue,
+                    _ => panic!("Error sending sequence: {}", err),
+                },
+            }
+        }
 
         let mut buf: [u8; 1024] = [0; 1024];
 
@@ -83,9 +90,15 @@ pub fn handshake(
                 return Err(254);
             }
 
-            socket
-                .send_to(&ack_data, address)
-                .expect("Couldn't send sequence");
+            loop {
+                match socket.send_to(&ack_data, address) {
+                    Ok(_) => break,
+                    Err(err) => match err.kind() {
+                        ErrorKind::PermissionDenied => continue,
+                        _ => panic!("Error sending sequence: {}", err),
+                    },
+                }
+            }
 
             let mut buf: [u8; 1024] = [0; 1024];
 

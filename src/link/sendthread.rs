@@ -1,4 +1,5 @@
 use std::collections::VecDeque;
+use std::io::ErrorKind;
 use std::net::SocketAddr;
 use std::net::UdpSocket;
 use std::sync::Arc;
@@ -183,10 +184,17 @@ impl SendThread {
     pub fn send(&mut self, packet: Packet) {
         let data = packet.compile();
 
-        let result = self
-            .socket
-            .send_to(&data, self.peer_addr)
-            .expect("Unable to send data");
+        let result = loop {
+            match self.socket.send_to(&data, self.peer_addr) {
+                Ok(size) => {
+                    break size;
+                }
+                Err(err) => match err.kind() {
+                    ErrorKind::PermissionDenied => continue,
+                    _ => panic!("Unable to send data: {}", err),
+                },
+            }
+        };
 
         if result == 0 {
             panic!("Cannot sent");
