@@ -127,7 +127,7 @@ impl Link {
         self.thread_handles.push(recv_thread);
     }
 
-    pub fn stop(&mut self) -> Result<(), AetherError>{
+    pub fn stop(&mut self) -> Result<(), AetherError> {
         // Set the stop flag
         match self.stop_flag.lock() {
             Ok(mut flag_lock) => {
@@ -146,9 +146,7 @@ impl Link {
                 } {}
                 Ok(())
             }
-            Err(_) => Err(AetherError::new(1003,"Failed to lock mutex."))
-
-            
+            Err(_) => Err(AetherError::new(1003, "Failed to lock mutex.")),
         }
     }
 
@@ -208,12 +206,7 @@ impl Link {
                         match now.elapsed() {
                             Ok(elapsed) => {
                                 if elapsed > timeout {
-                                    let aether_error = AetherError {
-                                        code: 1002,
-                                        description: "Function timed out",
-                                    };
-                                    log::error!("{}", aether_error);
-                                    break Err(aether_error);
+                                    break Err(AetherError::new(1002, "Function timed out."));
                                 } else {
                                     match self.output_queue.lock() {
                                         Ok(mut queue_lock) => {
@@ -231,37 +224,25 @@ impl Link {
                                             };
                                         }
                                         Err(_) => {
-                                            let aether_error = AetherError {
-                                                code: 1003,
-                                                description: "Failed to lock mutex.",
-                                            };
-                                            log::error!("{}", aether_error);
-                                            break Err(aether_error);
+                                            break Err(AetherError::new(
+                                                1003,
+                                                "Failed to lock mutex.",
+                                            ));
                                         }
                                     }
                                 }
                             }
                             Err(_) => {
-                                let aether_error = AetherError {
-                                    code: 1000,
-                                    description:
-                                        "System Time may have changed during initialization.",
-                                };
-                                log::error!("{}", aether_error);
-                                break Err(aether_error);
+                                break Err(AetherError::new(
+                                    1000,
+                                    "System Time may have changed during initialization.",
+                                ));
                             }
                         }
                     }
                 }
             }
-            Err(_) => {
-                let aether_error = AetherError {
-                    code: 1003,
-                    description: "Failed to lock mutex.",
-                };
-                log::error!("{}", aether_error);
-                Err(aether_error)
-            }
+            Err(_) => Err(AetherError::new(1003, "Failed to lock mutex.")),
         }
     }
     pub fn recv(&self) -> Result<Vec<u8>, AetherError> {
@@ -360,8 +341,7 @@ impl Link {
                     }
                 }
                 Err(aether_error) => {
-                    log::error!("{}", aether_error);
-                    break Err(AetherError::new(999, "Unexpected error"));
+                    break Err(aether_error);
                 }
             }
         }
@@ -371,8 +351,10 @@ impl Link {
 impl Drop for Link {
     fn drop(&mut self) {
         match self.stop() {
-            Ok(_) => {},
-            Err(aether_error) => {log::error!("{}", aether_error)}
+            Ok(_) => {}
+            Err(aether_error) => {
+                log::error!("{}", aether_error)
+            }
         }
     }
 }
