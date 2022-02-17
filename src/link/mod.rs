@@ -130,8 +130,8 @@ impl Link {
     pub fn stop(&mut self) -> Result<(), AetherError>{
         // Set the stop flag
         match self.stop_flag.lock() {
-            Ok(ref mut flag_lock) => {
-                **flag_lock = true;
+            Ok(mut flag_lock) => {
+                *flag_lock = true;
 
                 // Unlock stop flag
                 drop(flag_lock);
@@ -155,11 +155,11 @@ impl Link {
     pub fn send(&self, buf: Vec<u8>) -> Result<(), AetherError> {
         // Lock seq number
         match self.send_seq.lock() {
-            Ok(ref mut seq_lock) => {
+            Ok(mut seq_lock) => {
                 // Increase sequence number
-                (**seq_lock) += 1;
+                (*seq_lock) += 1;
 
-                let seq: u32 = **seq_lock;
+                let seq: u32 = *seq_lock;
 
                 // Unlock seq
                 drop(seq_lock);
