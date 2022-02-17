@@ -7,7 +7,6 @@ mod tests {
     use aether_lib::link::Link;
     use aether_lib::peer::handshake::handshake;
     #[test]
-    #[ignore]
     pub fn link_test() {
         let socket1 = UdpSocket::bind(("0.0.0.0", 0)).unwrap();
         let socket2 = UdpSocket::bind(("0.0.0.0", 0)).unwrap();
