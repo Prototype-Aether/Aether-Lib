@@ -126,7 +126,7 @@ impl Aether {
         match (*connections_lock).get_mut(username) {
             Some(connection) => match connection {
                 Connection::Connected(peer) => {
-                    peer.link.send(buf);
+                    peer.link.send(buf).unwrap();
                     Ok(0)
                 }
                 _ => Err(3),
@@ -140,37 +140,33 @@ impl Aether {
         match self.connections.lock() {
             Ok(ref mut connections_lock) => match (*connections_lock).get_mut(username) {
                 Some(connection) => match connection {
-                    Connection::Connected(peer) => {
-                        match peer.link.recv() {
-                            Ok(recv_vec) => {
-                                log::info!("Link Receive Module succesfully initialized.");
-                                Ok(recv_vec)
-                            }
-                            Err(aether_error) => {
-                                Err(AetherError {
-                                    code: 1004,
-                                    description: String::from("Failed to initialize Module."),
-                                    cause: Some(Box::new(aether_error)), // How  should we add aether_error?
-                                })
-                            }
+                    Connection::Connected(peer) => match peer.link.recv() {
+                        Ok(recv_vec) => {
+                            log::info!("Link Receive Module succesfully initialized.");
+                            Ok(recv_vec)
                         }
-                    }
+                        Err(aether_error) => {
+                            log::error!("{}", aether_error);
+                            Err(AetherError {
+                                code: 1005,
+                                description:
+                                    "User not connected. Connection could not be established.",
+                            })
+                        }
+                    },
                     _ => Err(AetherError {
-                        code: 1004,
-                        description: String::from("Failed to initialize Module."),
-                        cause: None,
+                        code: 1005,
+                        description: "User not connected. Connection could not be established.",
                     }),
                 },
                 None => Err(AetherError {
                     code: 1005,
-                    description: String::from("Failed to retrieve mutex lock of user."),
-                    cause: None,
+                    description: "User not connected. Connection could not be established.",
                 }),
             },
             Err(_) => Err(AetherError {
                 code: 1003,
-                description: String::from("Failed to lock mutex."),
-                cause: None,
+                description: "Failed to lock mutex.",
             }),
         }
     }
@@ -413,7 +409,7 @@ fn handle_request(
                         let peer_addr = SocketAddr::new(peer_ip, request.port);
                         let peer_username = request.username;
 
-                        let mut success = false;
+                        let mut success = false; // This bool DOES in fact get read and modified. Not sure why compiler doesn't recognize its usage.
 
                         // Start handshake
                         let link_result = handshake(
@@ -430,7 +426,7 @@ fn handle_request(
 
                                 // Authentication
                                 // Send own username
-                                link.send(my_username_clone.clone().into_bytes());
+                                link.send(my_username_clone.clone().into_bytes()).unwrap();
                                 let delay =
                                     thread_rng().gen_range(0..config_clone.aether.delta_time);
 
@@ -470,26 +466,28 @@ fn handle_request(
                                             );
                                             success = true;
                                         } else {
-                                            println!("Authentication failed");
+                                            return Err(AetherError::new(
+                                                1006,
+                                                "Failed to authenticate user.",
+                                            ));
                                         }
                                     }
                                     Err(aether_error) => {
-                                        log::error!("Failed to authenticate user.");
-                                        AetherError {
-                                            code: 1006,
-                                            description: String::from(
-                                                "Failed to authenticate user.",
-                                            ),
-                                            cause: Some(Box::new(aether_error)),
-                                        };
+                                        log::error!("{}", aether_error);
+                                        return Err(AetherError::new(
+                                            1006,
+                                            "Failed to authenticate user.",
+                                        ));
                                     }
                                 }
                             }
                             Err(e) => {
                                 println!("Handshake failed {}", e);
+                                return Err(AetherError::new(1011, "Handshake failed."));
                             }
                         }
 
+                        // Err(_) => return Err(AetherError::new(1011, "Handshake failed.")),
                         // If unsuccessful store time of failure
                         if !success {
                             let mut connections_lock =
@@ -506,6 +504,8 @@ fn handle_request(
                                 }),
                             );
                         }
+
+                        Ok(())
                     });
                 }
                 Connection::Failed(failed) => {

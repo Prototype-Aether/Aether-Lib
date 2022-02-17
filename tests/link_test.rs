@@ -18,8 +18,8 @@ mod tests {
         peer_addr1.set_ip(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)));
         peer_addr2.set_ip(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)));
 
-        let mut link1 = Link::new(socket1, peer_addr2, 0, 1000, Config::default());
-        let mut link2 = Link::new(socket2, peer_addr1, 1000, 0, Config::default());
+        let mut link1 = Link::new(socket1, peer_addr2, 0, 1000, Config::default()).unwrap();
+        let mut link2 = Link::new(socket2, peer_addr1, 1000, 0, Config::default()).unwrap();
 
         println!("{:?} {:?}", peer_addr1, peer_addr2);
 
@@ -33,7 +33,7 @@ mod tests {
         }
 
         for x in &data {
-            link1.send(x.clone());
+            link1.send(x.clone()).unwrap();
         }
 
         let mut count = 0;
@@ -94,10 +94,10 @@ mod tests {
             }
 
             for x in &data {
-                link.send(x.clone());
+                link.send(x.clone()).unwrap();
             }
 
-            link.wait();
+            link.wait().unwrap();
             println!("Stopping sender");
 
             data
@@ -124,7 +124,9 @@ mod tests {
                             break;
                         }
                     }
-                    Err(aether_error) => panic!("Error {}: {}", aether_error.code, aether_error.description),
+                    Err(aether_error) => {
+                        panic!("Error {}: {}", aether_error.code, aether_error.description)
+                    }
                 }
             }
 

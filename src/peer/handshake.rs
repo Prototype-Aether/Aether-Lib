@@ -1,10 +1,9 @@
+use crate::{acknowledgement::Acknowledgement, config::Config, packet::Packet};
+use crate::{link::Link, packet::PType};
 use std::{
     net::{SocketAddr, UdpSocket},
     time::{Duration, SystemTime},
 };
-
-use crate::{acknowledgement::Acknowledgement, config::Config, packet::Packet};
-use crate::{link::Link, packet::PType};
 
 use rand::{thread_rng, Rng};
 
@@ -111,9 +110,7 @@ pub fn handshake(
     }
 
     // Start the link
-    let mut link = Link::new(socket, address.clone(), seq, recv_seq, config);
-
+    let mut link = Link::new(socket, address.clone(), seq, recv_seq, config).unwrap();
     link.start();
-
     Ok(link)
 }

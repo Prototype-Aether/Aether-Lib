@@ -103,15 +103,15 @@ impl Config {
                 Ok(config) => Ok(config),
                 Err(_) => Err(AetherError {
                     code: 1007,
-                    description: String::from("Unable to parse config file"),
-                    cause: None,
+                    description: "Failed to parse config file",
                 }),
             },
-            Err(err) => Err(AetherError {
-                code: 1008,
-                description: format!("Unable to read config file: {}", err),
-                cause: None,
-            }),
+            Err(err) => {
+                log::error!("{}", err);
+                Err(AetherError::new(
+                1008,
+                "Failed to read config file.",
+                ))},
         }
     }
 
@@ -148,8 +148,7 @@ impl Config {
                         }
                         _ => Err(AetherError {
                             code: 1009,
-                            description: String::from("Unable to read default config file"),
-                            cause: Some(Box::new(err)),
+                            description: "Failed to read default config file",
                         }),
                     },
                 }
