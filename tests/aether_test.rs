@@ -10,7 +10,6 @@ mod tests {
     use aether_lib::peer::Aether;
 
     #[test]
-    #[ignore]
     pub fn aether_test() {
         // Run the tracker server
         thread::spawn(|| {
