@@ -208,10 +208,7 @@ impl Aether {
             .connections
             .lock()
             .expect("unable to lock connecting list");
-        match (*connections_lock).get(username) {
-            Some(Connection::Init(_)) => true,
-            _ => false,
-        }
+        matches!((*connections_lock).get(username), Some(Connection::Init(_)))
     }
 
     fn handle_sockets(&self) {
