@@ -187,11 +187,7 @@ impl Aether {
 
     pub fn is_connected(&self, username: &str) -> bool {
         let connections_lock = self.connections.lock().expect("unable to lock peers list");
-
-        match (*connections_lock).get(username) {
-            Some(Connection::Connected(_)) => true,
-            _ => false,
-        }
+        matches!((*connections_lock).get(username), Some(Connection::Connected(_)))
     }
 
     pub fn is_connecting(&self, username: &str) -> bool {
@@ -213,8 +209,8 @@ impl Aether {
             .lock()
             .expect("unable to lock connecting list");
         match (*connections_lock).get(username) {
-            Some(connection) => matches!(connection, Connection::Init(_)),
-            None => false,
+            Some(Connection::Init(_)) => true,
+            _ => false,
         }
     }
 
@@ -479,7 +475,7 @@ fn handle_request(
                                     time: SystemTime::now(),
                                     socket: UdpSocket::bind(("0.0.0.0", 0))
                                         .expect("unable to create socket"),
-                                    username: peer_username.clone(),
+                                    username: peer_username,
                                 }),
                             );
                         }
