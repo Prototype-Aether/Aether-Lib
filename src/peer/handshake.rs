@@ -20,6 +20,8 @@ pub fn handshake(
 
     let ack: bool;
 
+    println!("Starting handshake...");
+
     socket
         .set_read_timeout(Some(Duration::from_millis(config.handshake.peer_poll_time)))
         .expect("Unable to set read timeout");
@@ -71,6 +73,8 @@ pub fn handshake(
         }
     }
 
+    println!("Stage 1 complete");
+
     // If not acknowledged by other peer yet
     if !ack {
         packet.add_ack(Acknowledgement {
@@ -121,6 +125,8 @@ pub fn handshake(
             }
         }
     }
+
+    println!("Stage 1 complete");
 
     // Start the link
     let mut link = Link::new(socket, address.clone(), seq, recv_seq, config).unwrap();
