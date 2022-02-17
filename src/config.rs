@@ -17,7 +17,7 @@ use std::{convert::TryFrom, default::Default, fs, path::Path};
 use crate::error::AetherError;
 
 /// Structure to represent configuration options for `aether_lib`
-#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Default)]
 #[serde(default)]
 pub struct Config {
     /// Configuration for [`peer`][crate::peer] module
@@ -169,16 +169,6 @@ impl TryFrom<Config> for String {
     type Error = serde_yaml::Error;
     fn try_from(value: Config) -> Result<Self, Self::Error> {
         serde_yaml::to_string(&value)
-    }
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            aether: AetherConfig::default(),
-            handshake: HandshakeConfig::default(),
-            link: LinkConfig::default(),
-        }
     }
 }
 

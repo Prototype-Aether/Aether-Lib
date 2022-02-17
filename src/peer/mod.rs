@@ -26,7 +26,7 @@ pub enum Connection {
     /// Handshake state - handshake with the other peer is in progress
     Handshake,
     /// Connected state - a connection to the other peer has been established
-    Connected(Peer),
+    Connected(Box<Peer>),
     /// Failed state - a connection to the other peer had failed and would be retried
     Failed(Failure),
 }
@@ -109,10 +109,7 @@ impl Aether {
     pub fn connect(&self, username: String) {
         let mut connections_lock = self.connections.lock().expect("Unable to lock peers");
 
-        let is_present = match (*connections_lock).get(&username) {
-            Some(_) => true,
-            None => false,
-        };
+        let is_present = (*connections_lock).get(&username).is_some();
 
         if !is_present {
             let initialized = Initialized::new(username.clone());
@@ -121,7 +118,7 @@ impl Aether {
         }
     }
 
-    pub fn send_to(&self, username: &String, buf: Vec<u8>) -> Result<u8, u8> {
+    pub fn send_to(&self, username: &str, buf: Vec<u8>) -> Result<u8, u8> {
         let mut connections_lock = self.connections.lock().expect("unable to lock peers list");
         match (*connections_lock).get_mut(username) {
             Some(connection) => match connection {
@@ -136,30 +133,23 @@ impl Aether {
         }
     }
 
-    pub fn recv_from(&self, username: &String) -> Result<Vec<u8>, AetherError> {
+    pub fn recv_from(&self, username: &str) -> Result<Vec<u8>, AetherError> {
         match self.connections.lock() {
-            Ok(ref mut connections_lock) => match (*connections_lock).get_mut(username) {
-                Some(connection) => match connection {
-                    Connection::Connected(peer) => match peer.link.recv() {
-                        Ok(recv_vec) => {
-                            log::info!("Link Receive Module succesfully initialized.");
-                            Ok(recv_vec)
-                        }
-                        Err(aether_error) => {
-                            log::error!("{}", aether_error);
-                            Err(AetherError {
-                                code: 1005,
-                                description:
-                                    "User not connected. Connection could not be established.",
-                            })
-                        }
-                    },
-                    _ => Err(AetherError {
-                        code: 1005,
-                        description: "User not connected. Connection could not be established.",
-                    }),
+            Ok(mut connections_lock) => match (*connections_lock).get_mut(username) {
+                Some(Connection::Connected(peer)) => match peer.link.recv() {
+                    Ok(recv_vec) => {
+                        log::info!("Link Receive Module succesfully initialized.");
+                        Ok(recv_vec)
+                    }
+                    Err(aether_error) => {
+                        log::error!("{}", aether_error);
+                        Err(AetherError {
+                            code: 1005,
+                            description: "User not connected. Connection could not be established.",
+                        })
+                    }
                 },
-                None => Err(AetherError {
+                _ => Err(AetherError {
                     code: 1005,
                     description: "User not connected. Connection could not be established.",
                 }),
@@ -171,7 +161,7 @@ impl Aether {
         }
     }
 
-    pub fn wait_connection(&self, username: &String) -> Result<u8, u8> {
+    pub fn wait_connection(&self, username: &str) -> Result<u8, u8> {
         if !self.is_initialized(username) {
             if self.is_connecting(username) {
                 while self.is_connecting(username) {
@@ -180,12 +170,10 @@ impl Aether {
                     ));
                 }
                 Ok(0)
+            } else if self.is_connected(username) {
+                Ok(0)
             } else {
-                if self.is_connected(username) {
-                    Ok(0)
-                } else {
-                    Err(0)
-                }
+                Err(0)
             }
         } else {
             while !self.is_connected(username) {
@@ -197,43 +185,35 @@ impl Aether {
         }
     }
 
-    pub fn is_connected(&self, username: &String) -> bool {
+    pub fn is_connected(&self, username: &str) -> bool {
         let connections_lock = self.connections.lock().expect("unable to lock peers list");
 
         match (*connections_lock).get(username) {
-            Some(connection) => match connection {
-                Connection::Connected(_) => true,
-                _ => false,
-            },
+            Some(Connection::Connected(_)) => true,
             _ => false,
         }
     }
 
-    pub fn is_connecting(&self, username: &String) -> bool {
+    pub fn is_connecting(&self, username: &str) -> bool {
         let connections_lock = self
             .connections
             .lock()
             .expect("unable to lock connecting list");
         match (*connections_lock).get(username) {
-            Some(connection) => match connection {
-                Connection::Failed(_) => false,
-                Connection::Connected(_) => false,
-                _ => true,
-            },
+            Some(connection) => {
+                !matches!(connection, Connection::Failed(_) | Connection::Connected(_))
+            }
             None => false,
         }
     }
 
-    pub fn is_initialized(&self, username: &String) -> bool {
+    pub fn is_initialized(&self, username: &str) -> bool {
         let connections_lock = self
             .connections
             .lock()
             .expect("unable to lock connecting list");
         match (*connections_lock).get(username) {
-            Some(connection) => match connection {
-                Connection::Init(_) => true,
-                _ => false,
-            },
+            Some(connection) => matches!(connection, Connection::Init(_)),
             None => false,
         }
     }
@@ -241,7 +221,7 @@ impl Aether {
     fn handle_sockets(&self) {
         let my_username = self.username.clone();
         let connections = self.connections.clone();
-        let tracker_addr = self.tracker_addr.clone();
+        let tracker_addr = self.tracker_addr;
         let config = self.config;
         thread::spawn(move || {
             loop {
@@ -312,7 +292,7 @@ impl Aether {
         let mut buf: [u8; 1024] = [0; 1024];
 
         let socket = self.socket.clone();
-        let tracker_addr = self.tracker_addr.clone();
+        let tracker_addr = self.tracker_addr;
 
         let requests = self.requests.clone();
 
@@ -346,23 +326,22 @@ impl Aether {
         let requests = self.requests.clone();
         let connections = self.connections.clone();
         let my_username = self.username.clone();
-        let tracker_addr = self.tracker_addr.clone();
+        let tracker_addr = self.tracker_addr;
         let config = self.config;
 
         thread::spawn(move || loop {
             let mut req_lock = requests.lock().expect("Unable to lock requests queue");
 
             // For each request received
-            match (*req_lock).pop_front() {
-                Some(request) => handle_request(
+            if let Some(request) = (*req_lock).pop_front() {
+                handle_request(
                     request,
                     my_username.clone(),
                     &mut connections.clone(),
                     tracker_addr,
                     &mut req_lock,
                     config,
-                ),
-                None => (),
+                )
             }
 
             drop(req_lock);
@@ -391,7 +370,7 @@ fn handle_request(
                 Connection::Init(init) => {
                     // Clone important data to pass to handshake thread
                     let connections_clone = connections.clone();
-                    let my_username_clone = my_username.clone();
+                    let my_username_clone = my_username;
 
                     let config_clone = config;
 
@@ -462,7 +441,7 @@ fn handle_request(
                                             // with connected state
                                             (*connections_lock).insert(
                                                 peer_username.clone(),
-                                                Connection::Connected(peer),
+                                                Connection::Connected(Box::new(peer)),
                                             );
                                             success = true;
                                         } else {
@@ -551,7 +530,7 @@ fn handle_request(
             };
 
             let packet = TrackerPacket {
-                username: my_username.clone(),
+                username: my_username,
                 peer_username: connection.username.clone(),
                 identity_number: connection.identity_number,
                 packet_type: 2,

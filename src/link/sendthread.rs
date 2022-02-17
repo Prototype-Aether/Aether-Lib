@@ -96,11 +96,9 @@ impl SendThread {
                                 self.batch_queue.push_back(meta_packet);
                             }
                         }
-                    } else {
-                        if !self.check_ack(&packet) {
-                            self.add_ack(&mut packet);
-                            self.send(packet);
-                        }
+                    } else if !self.check_ack(&packet) {
+                        self.add_ack(&mut packet);
+                        self.send(packet);
                     }
                 }
                 None => {
@@ -166,7 +164,7 @@ impl SendThread {
     }
 
     pub fn check_ack(&self, packet: &Packet) -> bool {
-        if needs_ack(&packet) {
+        if needs_ack(packet) {
             let ack_lock = self.ack_check.lock().expect("Unable to lock ack list");
             (*ack_lock).check(&packet.sequence)
         } else {
