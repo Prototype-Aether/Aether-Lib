@@ -9,19 +9,22 @@ mod tests {
 
     use aether_lib::peer::Aether;
 
+    pub fn run(cmd: &str) {
+        let child = Command::new("sh").arg("-c").arg(cmd).spawn().unwrap();
+        let output = child.wait_with_output().unwrap();
+        println!(
+            "{}\n{}",
+            String::from_utf8(output.stdout).unwrap(),
+            String::from_utf8(output.stderr).unwrap()
+        );
+    }
+
     #[test]
     pub fn aether_test() {
         // Run the tracker server
         thread::spawn(|| {
-            let output = Command::new("sh")
-                .arg("-c")
-                .arg("rm -rf tmp && mkdir -p tmp && cd tmp && git clone https://github.com/Prototype-Aether/Aether-Tracker.git && cd Aether-Tracker && cargo run --bin server 8000")
-                .output()
-                .expect("Unable to start tracker server");
-            println!(
-                "{}",
-                String::from_utf8(output.stdout).expect("unable to get output of command")
-            );
+            run("rm -rf tmp && mkdir -p tmp && cd tmp && git clone https://github.com/Prototype-Aether/Aether-Tracker.git");
+            run("cd tmp/Aether-Tracker && cargo run --bin server 8000")
         });
 
         let tracker_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8000);
