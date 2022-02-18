@@ -27,6 +27,7 @@ pub fn needs_ack(packet: &Packet) -> bool {
     }
 }
 
+// Check if bundling acr mutex vars is possible
 pub struct Link {
     ack_list: Arc<Mutex<AcknowledgementList>>,
     ack_check: Arc<Mutex<AcknowledgementCheck>>,
@@ -52,6 +53,8 @@ impl Link {
         config: Config,
     ) -> Result<Link, AetherError> {
         let socket = Arc::new(socket);
+
+        // if - let for errors
         match socket.set_read_timeout(Some(Duration::from_secs(1))) {
             Ok(_) => {}
             Err(_) => {
@@ -101,6 +104,7 @@ impl Link {
         );
 
         // Start the send thread
+        // Check for arc self if stable : https://stackoverflow.com/questions/25462935/what-types-are-valid-for-the-self-parameter-of-a-method
         let send_thread = thread::spawn(move || {
             send_thread_data.start();
         });
@@ -168,7 +172,7 @@ impl Link {
 
                 // Lock the primary queue
                 match self.primary_queue.lock() {
-                    Ok(ref mut queue_lock) => {
+                    Ok(mut queue_lock) => {
                         (*queue_lock).push_back(packet);
                         Ok(())
                     }
@@ -258,27 +262,20 @@ impl Link {
                 } else {
                     // Pop the next packet from output queue
                     loop {
-                        match self.read_timeout {
-                            Some(time) => {
-                                match now.elapsed() {
-                                    Ok(elapsed) => {
-                                        if elapsed > time {
-                                            break Err(AetherError::new(
-                                                1002,
-                                                "Function timed out",
-                                            ));
-                                        }
-                                    }
-                                    Err(_) => {
-                                        // let sys_error = AetherError::new(1000, e.to_string(), None);
-                                        break Err(AetherError::new(
-                                            1000,
-                                            "System Time may have changed during initialization",
-                                        ));
+                        if let Some(time) = self.read_timeout {
+                            match now.elapsed() {
+                                Ok(elapsed) => {
+                                    if elapsed > time {
+                                        break Err(AetherError::new(1002, "Function timed out"));
                                     }
                                 }
+                                Err(_) => {
+                                    break Err(AetherError::new(
+                                        1000,
+                                        "System Time may have changed during initialization",
+                                    ));
+                                }
                             }
-                            None => (),
                         }
 
                         match self.output_queue.lock() {

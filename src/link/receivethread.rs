@@ -1,4 +1,5 @@
 //use rand::{thread_rng, Rng};
+use std::cmp::{Ord, Ordering};
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::net::SocketAddr;
@@ -27,26 +28,28 @@ impl OrderList {
     }
 
     pub fn insert(&mut self, packet: Packet) -> Result<VecDeque<Packet>, u8> {
-        if packet.sequence > self.seq + 1 {
-            self.list.insert(packet.sequence, packet);
-            Err(1)
-        } else if packet.sequence == self.seq + 1 {
-            let mut result: VecDeque<Packet> = VecDeque::new();
-            result.push_back(packet);
+        match (self.seq).cmp(&(packet.sequence - 1)) {
+            Ordering::Less => {
+                self.list.insert(packet.sequence, packet);
+                Err(1)
+            }
+            Ordering::Equal => {
+                let mut result: VecDeque<Packet> = VecDeque::new();
+                result.push_back(packet);
 
-            self.seq += 1;
+                self.seq += 1;
 
-            loop {
-                match self.list.remove(&(self.seq + 1)) {
-                    Some(n_packet) => {
-                        self.seq += 1;
-                        result.push_back(n_packet);
+                loop {
+                    match self.list.remove(&(self.seq + 1)) {
+                        Some(n_packet) => {
+                            self.seq += 1;
+                            result.push_back(n_packet);
+                        }
+                        None => break Ok(result),
                     }
-                    None => break Ok(result),
                 }
             }
-        } else {
-            Err(0)
+            _ => Err(0),
         }
     }
 }
@@ -146,7 +149,7 @@ impl ReceiveThread {
     }
 
     fn send_ack(&self, packet: &Packet) {
-        if needs_ack(&packet) {
+        if needs_ack(packet) {
             let mut ack_lock = self.ack_list.lock().expect("Unable to lack ack list");
             (*ack_lock).insert(packet.sequence);
         }
@@ -166,16 +169,13 @@ impl ReceiveThread {
 
     fn order_output(&mut self, packet: Packet) {
         match self.order_list.insert(packet) {
-            Ok(mut packets) => loop {
-                match packets.pop_front() {
-                    Some(p) => {
-                        let mut output_lock =
-                            self.output_queue.lock().expect("Cannot lock output queue");
-                        (*output_lock).push_back(p);
-                    }
-                    None => break,
+            Ok(mut packets) => {
+                while let Some(p) = packets.pop_front() {
+                    let mut output_lock =
+                        self.output_queue.lock().expect("Cannot lock output queue");
+                    (*output_lock).push_back(p);
                 }
-            },
+            }
             Err(1) => (),
             Err(0) => panic!("Sequence number too old"),
             _ => panic!("Unexpected error"),
