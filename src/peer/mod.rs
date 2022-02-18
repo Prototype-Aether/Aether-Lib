@@ -483,7 +483,6 @@ fn handle_request(
                             }
                             Err(e) => {
                                 println!("Handshake failed {}", e);
-                                return Err(AetherError::new(1011, "Handshake failed."));
                             }
                         }
 
