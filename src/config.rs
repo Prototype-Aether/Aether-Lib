@@ -101,17 +101,9 @@ impl Config {
         match fs::read_to_string(file_path) {
             Ok(data) => match Config::try_from(data) {
                 Ok(config) => Ok(config),
-                Err(_) => Err(AetherError {
-                    code: 1007,
-                    description: "Failed to parse config file",
-                }),
+                Err(err) => Err(AetherError::YamlParse(err)),
             },
-            Err(err) => {
-                log::error!("{}", err);
-                Err(AetherError::new(
-                1008,
-                "Failed to read config file.",
-                ))},
+            Err(err) => Err(AetherError::FileRead(err)),
         }
     }
 
@@ -141,15 +133,12 @@ impl Config {
 
                 match Config::from_file(path) {
                     Ok(config) => Ok(config),
-                    Err(err) => match err.code {
-                        1008 => {
-                            println!("{:?}", err);
+                    Err(err) => match err {
+                        AetherError::FileRead(file_err) => {
+                            println!("{:?}", file_err);
                             Ok(Config::default())
                         }
-                        _ => Err(AetherError {
-                            code: 1009,
-                            description: "Failed to read default config file",
-                        }),
+                        _ => Err(err),
                     },
                 }
             }

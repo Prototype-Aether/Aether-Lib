@@ -3,7 +3,7 @@ mod tests {
 
     use std::{
         net::{IpAddr, Ipv4Addr, SocketAddr},
-        process::{Command, Stdio},
+        process::Command,
         thread,
     };
 

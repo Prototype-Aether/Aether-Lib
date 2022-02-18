@@ -1,52 +1,26 @@
 //! Structures to represent errors in `aether_lib`
-use std::fmt::{Debug, Display, Formatter, Result};
+use std::fmt::Debug;
+use std::time::SystemTimeError;
+use thiserror::Error;
 
-pub struct AetherError {
-    pub code: u16,
-    pub description: &'static str,
-}
-
-impl AetherError {
-    pub fn new(code: u16, description: &'static str) -> AetherError {
-        AetherError { code, description }
-    }
-}
-
-impl Display for AetherError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        write!(f, "E{}: {}", self.code, self.description)
-    }
-}
-
-impl Debug for AetherError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        write!(f, "{}", self)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::error::AetherError;
-
-    #[test]
-    fn display_test() {
-        let err = AetherError {
-            code: 9001,
-            description: "Test error",
-        };
-
-        assert_eq!(format!("{}", err), "E9001: Test error");
-    }
-
-    #[test]
-
-    fn debug_test() {
-        let err1 = AetherError {
-            code: 9002,
-            description: "Some Error",
-        };
-        assert_eq!(format!("{:?}", err1), "E9002: Some Error");
-        // assert_eq!(format!("{:?}", err3),
-        // "E9032: Top level error\nCause: E9023: Middle level error\nCause: E9002: Bottom level error");
-    }
+#[derive(Error, Debug)]
+pub enum AetherError {
+    #[error("Current time is from future so cannot calculate elapsed time")]
+    ElapsedTime(#[from] SystemTimeError),
+    #[error("Failed to lock a mutex")]
+    MutexLock(&'static str),
+    #[error("Link module stopped")]
+    LinkStopped(&'static str),
+    #[error("Receive timed out")]
+    RecvTimeout,
+    #[error("Link timed out")]
+    LinkTimeout,
+    #[error("Failed to set read timeout on socket")]
+    SetReadTimeout,
+    #[error("User not connected")]
+    NotConnected(String),
+    #[error("Error parsing yaml string")]
+    YamlParse(#[from] serde_yaml::Error),
+    #[error("Error reading file")]
+    FileRead(#[from] std::io::Error),
 }

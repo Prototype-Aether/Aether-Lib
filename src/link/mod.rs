@@ -58,12 +58,7 @@ impl Link {
         match socket.set_read_timeout(Some(Duration::from_secs(1))) {
             Ok(_) => {}
             Err(_) => {
-                let aether_error = AetherError {
-                    code: 1006,
-                    description: "Failed to set timeout.",
-                };
-                log::error!("{}", aether_error);
-                return Err(aether_error);
+                return Err(AetherError::SetReadTimeout);
             }
         }
 
@@ -150,7 +145,7 @@ impl Link {
                 } {}
                 Ok(())
             }
-            Err(_) => Err(AetherError::new(1003, "Failed to lock mutex.")),
+            Err(_) => Err(AetherError::MutexLock("stop flag")),
         }
     }
 
@@ -176,12 +171,12 @@ impl Link {
                         (*queue_lock).push_back(packet);
                         Ok(())
                     }
-                    Err(_) => Err(AetherError::new(1003, "Failed to lock mutex.")),
+                    Err(_) => Err(AetherError::MutexLock("primary queue")),
                 }
 
                 // Push the new packet onto the primary queue
             }
-            Err(_) => Err(AetherError::new(1003, "Failed to lock mutex.")),
+            Err(_) => Err(AetherError::MutexLock("send queue")),
         }
     }
 
@@ -198,19 +193,14 @@ impl Link {
                 let now = SystemTime::now();
 
                 if stop {
-                    let aether_error = AetherError {
-                        code: 1001,
-                        description: "Link Module Terminated.",
-                    };
-                    //log::error!("{}",aether_error);
-                    Err(aether_error)
+                    Err(AetherError::LinkStopped("recv timeout"))
                 } else {
                     // Pop the next packet from output queue
                     loop {
                         match now.elapsed() {
                             Ok(elapsed) => {
                                 if elapsed > timeout {
-                                    break Err(AetherError::new(1002, "Function timed out."));
+                                    break Err(AetherError::RecvTimeout);
                                 } else {
                                     match self.output_queue.lock() {
                                         Ok(mut queue_lock) => {
@@ -228,27 +218,22 @@ impl Link {
                                             };
                                         }
                                         Err(_) => {
-                                            break Err(AetherError::new(
-                                                1003,
-                                                "Failed to lock mutex.",
-                                            ));
+                                            break Err(AetherError::MutexLock("output queue"));
                                         }
                                     }
                                 }
                             }
-                            Err(_) => {
-                                break Err(AetherError::new(
-                                    1000,
-                                    "System Time may have changed during initialization.",
-                                ));
+                            Err(err) => {
+                                break Err(AetherError::ElapsedTime(err));
                             }
                         }
                     }
                 }
             }
-            Err(_) => Err(AetherError::new(1003, "Failed to lock mutex.")),
+            Err(_) => Err(AetherError::MutexLock("stop flag")),
         }
     }
+
     pub fn recv(&self) -> Result<Vec<u8>, AetherError> {
         match self.stop_flag.lock() {
             Ok(flag_lock) => {
@@ -258,7 +243,7 @@ impl Link {
                 let now = SystemTime::now();
 
                 if stop {
-                    Err(AetherError::new(1001, "Link Receive module stopped."))
+                    Err(AetherError::LinkStopped("recv"))
                 } else {
                     // Pop the next packet from output queue
                     loop {
@@ -266,14 +251,11 @@ impl Link {
                             match now.elapsed() {
                                 Ok(elapsed) => {
                                     if elapsed > time {
-                                        break Err(AetherError::new(1002, "Function timed out"));
+                                        break Err(AetherError::LinkTimeout);
                                     }
                                 }
-                                Err(_) => {
-                                    break Err(AetherError::new(
-                                        1000,
-                                        "System Time may have changed during initialization",
-                                    ));
+                                Err(err) => {
+                                    break Err(AetherError::ElapsedTime(err));
                                 }
                             }
                         }
@@ -295,13 +277,13 @@ impl Link {
                                 };
                             }
                             Err(_) => {
-                                break Err(AetherError::new(1003, "Failed to lock mutex."));
+                                break Err(AetherError::MutexLock("output queue"));
                             }
                         }
                     }
                 }
             }
-            Err(_) => Err(AetherError::new(1003, "Failed to lock mutex.")),
+            Err(_) => Err(AetherError::MutexLock("stop flag")),
         }
     }
 
@@ -313,16 +295,10 @@ impl Link {
 
                 match self.batch_empty.lock() {
                     Ok(batch_lock) => Ok(result && (*batch_lock)),
-                    Err(_) => {
-                        let aether_error = AetherError::new(1003, "Failed to lock mutex.");
-                        Err(aether_error)
-                    }
+                    Err(_) => Err(AetherError::MutexLock("batch empty flag")),
                 }
             }
-            Err(_) => {
-                let aether_error = AetherError::new(1003, "Failed to lock mutex.");
-                Err(aether_error)
-            }
+            Err(_) => Err(AetherError::MutexLock("output queue")),
         }
     }
 
