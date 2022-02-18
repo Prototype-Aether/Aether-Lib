@@ -167,9 +167,9 @@ impl Default for AetherConfig {
         Self {
             server_retry_delay: 1_000,
             server_poll_time: 1_000,
-            handshake_retry_delay: 5_000,
+            handshake_retry_delay: 1_500,
             connection_check_delay: 1_000,
-            delta_time: 100,
+            delta_time: 1000,
             poll_time_us: 100,
         }
     }
@@ -179,8 +179,8 @@ impl Default for AetherConfig {
 impl Default for HandshakeConfig {
     fn default() -> Self {
         Self {
-            peer_poll_time: 500,
-            handshake_timeout: 5_000,
+            peer_poll_time: 100,
+            handshake_timeout: 2_500,
         }
     }
 }
