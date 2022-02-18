@@ -143,7 +143,7 @@ impl Aether {
                     }
                     Err(aether_error) => Err(aether_error),
                 },
-                _ => Err(AetherError::NotConnected(username.clone())),
+                _ => Err(AetherError::NotConnected(username.to_string())),
             },
             Err(_) => Err(AetherError::MutexLock("connections")),
         }
@@ -175,7 +175,10 @@ impl Aether {
 
     pub fn is_connected(&self, username: &str) -> bool {
         let connections_lock = self.connections.lock().expect("unable to lock peers list");
-        matches!((*connections_lock).get(username), Some(Connection::Connected(_)))
+        matches!(
+            (*connections_lock).get(username),
+            Some(Connection::Connected(_))
+        )
     }
 
     pub fn is_connecting(&self, username: &str) -> bool {
