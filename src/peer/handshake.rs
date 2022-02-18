@@ -87,17 +87,19 @@ pub fn handshake(
             let mut buf: [u8; 1024] = [0; 1024];
 
             if let Ok(size) = socket.recv(&mut buf) {
-                let recved = Packet::from(buf[..size].to_vec());
-                let username_recved =
-                    String::from_utf8(recved.payload.clone()).expect("Unable to get username");
+                if size > 0 {
+                    let recved = Packet::from(buf[..size].to_vec());
+                    let username_recved =
+                        String::from_utf8(recved.payload.clone()).expect("Unable to get username");
 
-                // Verify the sender has the correct username
-                if username_recved == peer_username
-                    && recved.sequence == recv_seq
-                    && recved.flags.ack
-                    && recved.ack.ack_begin == seq
-                {
-                    break;
+                    // Verify the sender has the correct username
+                    if username_recved == peer_username
+                        && recved.sequence == recv_seq
+                        && recved.flags.ack
+                        && recved.ack.ack_begin == seq
+                    {
+                        break;
+                    }
                 }
             }
         }
