@@ -145,29 +145,13 @@ impl Aether {
                             log::info!("Link Receive Module succesfully initialized.");
                             Ok(recv_vec)
                         }
-                        Err(aether_error) => {
-                            log::error!("{}", aether_error);
-                            Err(AetherError {
-                                code: 1005,
-                                description:
-                                    "User not connected. Connection could not be established.",
-                            })
-                        }
+                        Err(aether_error) => Err(aether_error),
                     },
-                    _ => Err(AetherError {
-                        code: 1005,
-                        description: "User not connected. Connection could not be established.",
-                    }),
+                    _ => Err(AetherError::NotConnected(username.clone())),
                 },
-                None => Err(AetherError {
-                    code: 1005,
-                    description: "User not connected. Connection could not be established.",
-                }),
+                None => Err(AetherError::NotConnected(username.clone())),
             },
-            Err(_) => Err(AetherError {
-                code: 1003,
-                description: "Failed to lock mutex.",
-            }),
+            Err(_) => Err(AetherError::MutexLock("connections")),
         }
     }
 
@@ -466,19 +450,15 @@ fn handle_request(
                                             );
                                             success = true;
                                         } else {
-                                            return Err(AetherError::new(
-                                                1006,
-                                                "Failed to authenticate user.",
-                                            ));
+                                            println!("Authentication failed");
                                         }
                                     }
-                                    Err(aether_error) => {
-                                        log::error!("{}", aether_error);
-                                        return Err(AetherError::new(
-                                            1006,
-                                            "Failed to authenticate user.",
-                                        ));
-                                    }
+                                    Err(err) => match err {
+                                        AetherError::RecvTimeout => {
+                                            println!("Authentication failed")
+                                        }
+                                        _ => panic!("Unexpcted error"),
+                                    },
                                 }
                             }
                             Err(e) => {
@@ -486,7 +466,6 @@ fn handle_request(
                             }
                         }
 
-                        // Err(_) => return Err(AetherError::new(1011, "Handshake failed.")),
                         // If unsuccessful store time of failure
                         if !success {
                             let mut connections_lock =
@@ -503,8 +482,6 @@ fn handle_request(
                                 }),
                             );
                         }
-
-                        Ok(())
                     });
                 }
                 Connection::Failed(failed) => {
