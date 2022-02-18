@@ -15,7 +15,7 @@ impl Clone for ConnectionRequest {
             identity_number: self.identity_number,
             username: self.username.clone(),
             port: self.port,
-            ip: self.ip.clone(),
+            ip: self.ip,
         }
     }
 }
