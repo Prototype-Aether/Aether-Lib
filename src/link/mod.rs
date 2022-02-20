@@ -217,7 +217,12 @@ impl Link {
     /// # Arguments
     /// * `timeout` - Timeout to wait for receiving packets
     /// # Returns
-    /// *
+    /// * [`Vec<u8>`] - Buffer containing the received bytes
+    /// # Errors
+    /// * [`AetherError::ReadTimeout`] - Timeout reached before receiving any bytes
+    /// * [`AetherError::LinkStopped`] - [`Link`] stopped before receiving any bytes
+    ///
+    /// Other general errors might occur (refer to [`AetherError`])
     pub fn recv_timeout(&self, timeout: Duration) -> Result<Vec<u8>, AetherError> {
         match self.stop_flag.lock() {
             Ok(flag_lock) => {
@@ -268,6 +273,14 @@ impl Link {
         }
     }
 
+    /// Receive bytes from the other peer
+    /// # Returns
+    /// * `Vec<u8>` - Buffer containing the received bytes
+    /// # Errors
+    /// * [`AetherError::LinkStopped`] - [`Link`] stopped before receiving any bytes
+    /// * [`AetherError::LinkTimeout`] - [`Link`] timed out before receiving any bytes
+    ///
+    /// Other general errors might occur (refer to [`AetherError`])
     pub fn recv(&self) -> Result<Vec<u8>, AetherError> {
         match self.stop_flag.lock() {
             Ok(flag_lock) => {
@@ -320,9 +333,11 @@ impl Link {
             Err(_) => Err(AetherError::MutexLock("stop flag")),
         }
     }
-
+    /// Returns true if no more packets needs to be sent
+    /// Checks if both output queue and batch queue are empty
     pub fn is_empty(&self) -> Result<bool, AetherError> {
         match self.output_queue.lock() {
+            //should be primary queue ??
             Ok(queue_lock) => {
                 let result = (*queue_lock).is_empty();
                 drop(queue_lock);
@@ -336,6 +351,7 @@ impl Link {
         }
     }
 
+    /// Waits and blocks the current thread until the [`Link`] is empty
     pub fn wait(&self) -> Result<(), AetherError> {
         loop {
             match self.is_empty() {
