@@ -17,7 +17,7 @@ use std::{convert::TryFrom, default::Default, fs, path::Path};
 use crate::error::AetherError;
 
 /// Structure to represent configuration options for `aether_lib`
-#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Default)]
 #[serde(default)]
 pub struct Config {
     /// Configuration for [`peer`][crate::peer] module
@@ -101,17 +101,9 @@ impl Config {
         match fs::read_to_string(file_path) {
             Ok(data) => match Config::try_from(data) {
                 Ok(config) => Ok(config),
-                Err(_) => Err(AetherError {
-                    code: 1007,
-                    description: "Failed to parse config file",
-                }),
+                Err(err) => Err(AetherError::YamlParse(err)),
             },
-            Err(err) => {
-                log::error!("{}", err);
-                Err(AetherError::new(
-                1008,
-                "Failed to read config file.",
-                ))},
+            Err(err) => Err(AetherError::FileRead(err)),
         }
     }
 
@@ -141,15 +133,12 @@ impl Config {
 
                 match Config::from_file(path) {
                     Ok(config) => Ok(config),
-                    Err(err) => match err.code {
-                        1008 => {
-                            println!("{:?}", err);
+                    Err(err) => match err {
+                        AetherError::FileRead(file_err) => {
+                            println!("{:?}", file_err);
                             Ok(Config::default())
                         }
-                        _ => Err(AetherError {
-                            code: 1009,
-                            description: "Failed to read default config file",
-                        }),
+                        _ => Err(err),
                     },
                 }
             }
@@ -172,25 +161,15 @@ impl TryFrom<Config> for String {
     }
 }
 
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            aether: AetherConfig::default(),
-            handshake: HandshakeConfig::default(),
-            link: LinkConfig::default(),
-        }
-    }
-}
-
 /// Default values for [`AetherConfig`]
 impl Default for AetherConfig {
     fn default() -> Self {
         Self {
             server_retry_delay: 1_000,
             server_poll_time: 1_000,
-            handshake_retry_delay: 5_000,
+            handshake_retry_delay: 1_500,
             connection_check_delay: 1_000,
-            delta_time: 100,
+            delta_time: 1000,
             poll_time_us: 100,
         }
     }
@@ -200,8 +179,8 @@ impl Default for AetherConfig {
 impl Default for HandshakeConfig {
     fn default() -> Self {
         Self {
-            peer_poll_time: 500,
-            handshake_timeout: 5_000,
+            peer_poll_time: 100,
+            handshake_timeout: 2_500,
         }
     }
 }

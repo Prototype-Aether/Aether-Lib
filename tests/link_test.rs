@@ -7,7 +7,6 @@ mod tests {
     use aether_lib::link::Link;
     use aether_lib::peer::handshake::handshake;
     #[test]
-    #[ignore]
     pub fn link_test() {
         let socket1 = UdpSocket::bind(("0.0.0.0", 0)).unwrap();
         let socket2 = UdpSocket::bind(("0.0.0.0", 0)).unwrap();
@@ -54,12 +53,9 @@ mod tests {
             println!("{} == {}", a, b);
             assert_eq!(recv[i], data[i]);
         }
-
-        println!("Stopping");
     }
 
     #[test]
-    #[ignore]
     pub fn handshake_test() {
         let socket1 = UdpSocket::bind(("0.0.0.0", 0)).unwrap();
         let socket2 = UdpSocket::bind(("0.0.0.0", 0)).unwrap();
@@ -124,12 +120,13 @@ mod tests {
                             break;
                         }
                     }
-                    Err(aether_error) => {
-                        panic!("Error {}: {}", aether_error.code, aether_error.description)
+                    Err(err) => {
+                        panic!("Error {}", err);
                     }
                 }
             }
 
+            link.wait().unwrap();
             println!("Stopping receiver");
             recv
         });
@@ -138,9 +135,6 @@ mod tests {
         let recv = recv_thread.join().expect("Receive thread panicked");
 
         for i in 0..recv.len() {
-            let a = String::from_utf8(recv[i].clone()).unwrap();
-            let b = String::from_utf8(data[i].clone()).unwrap();
-            println!("{} == {}", a, b);
             assert_eq!(recv[i], data[i]);
         }
 

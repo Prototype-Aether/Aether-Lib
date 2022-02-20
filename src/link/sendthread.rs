@@ -1,4 +1,5 @@
 use std::collections::VecDeque;
+use std::io::ErrorKind;
 use std::net::SocketAddr;
 use std::net::UdpSocket;
 use std::sync::Arc;
@@ -96,11 +97,9 @@ impl SendThread {
                                 self.batch_queue.push_back(meta_packet);
                             }
                         }
-                    } else {
-                        if !self.check_ack(&packet) {
-                            self.add_ack(&mut packet);
-                            self.send(packet);
-                        }
+                    } else if !self.check_ack(&packet) {
+                        self.add_ack(&mut packet);
+                        self.send(packet);
                     }
                 }
                 None => {
@@ -166,7 +165,7 @@ impl SendThread {
     }
 
     pub fn check_ack(&self, packet: &Packet) -> bool {
-        if needs_ack(&packet) {
+        if needs_ack(packet) {
             let ack_lock = self.ack_check.lock().expect("Unable to lock ack list");
             (*ack_lock).check(&packet.sequence)
         } else {
@@ -183,10 +182,17 @@ impl SendThread {
     pub fn send(&mut self, packet: Packet) {
         let data = packet.compile();
 
-        let result = self
-            .socket
-            .send_to(&data, self.peer_addr)
-            .expect("Unable to send data");
+        let result = loop {
+            match self.socket.send_to(&data, self.peer_addr) {
+                Ok(size) => {
+                    break size;
+                }
+                Err(err) => match err.kind() {
+                    ErrorKind::PermissionDenied => continue,
+                    _ => panic!("Unable to send data: {}", err),
+                },
+            }
+        };
 
         if result == 0 {
             panic!("Cannot sent");

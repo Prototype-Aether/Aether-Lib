@@ -1,5 +1,6 @@
 use crate::{acknowledgement::Acknowledgement, config::Config, packet::Packet};
 use crate::{link::Link, packet::PType};
+use std::io::ErrorKind;
 use std::{
     net::{SocketAddr, UdpSocket},
     time::{Duration, SystemTime},
@@ -14,7 +15,7 @@ pub fn handshake(
     peer_username: String,
     config: Config,
 ) -> Result<Link, u8> {
-    let seq = thread_rng().gen_range(0..(1 << 16 as u32)) as u32;
+    let seq = thread_rng().gen_range(0..(1 << 16_u32)) as u32;
     let recv_seq: u32;
 
     let ack: bool;
@@ -24,7 +25,7 @@ pub fn handshake(
         .expect("Unable to set read timeout");
 
     let mut packet = Packet::new(PType::Initiation, seq);
-    packet.append_payload(my_username.clone().into_bytes());
+    packet.append_payload(my_username.into_bytes());
 
     let sequence_data = packet.compile();
 
@@ -37,30 +38,33 @@ pub fn handshake(
             return Err(255);
         }
 
-        socket
-            .send_to(&sequence_data, address)
-            .expect("Couldn't send sequence");
+        loop {
+            match socket.send_to(&sequence_data, address) {
+                Ok(_) => break,
+                Err(err) => match err.kind() {
+                    ErrorKind::PermissionDenied => continue,
+                    _ => panic!("Error sending sequence: {}", err),
+                },
+            }
+        }
 
         let mut buf: [u8; 1024] = [0; 1024];
 
-        match socket.recv(&mut buf) {
-            Ok(size) => {
-                if size > 0 {
-                    let recved = Packet::from(buf[..size].to_vec());
-                    let username_recved =
-                        String::from_utf8(recved.payload.clone()).expect("Unable to get username");
+        if let Ok(size) = socket.recv(&mut buf) {
+            if size > 0 {
+                let recved = Packet::from(buf[..size].to_vec());
+                let username_recved =
+                    String::from_utf8(recved.payload.clone()).expect("Unable to get username");
 
-                    // Verify the sender has the correct username
-                    if username_recved == peer_username {
-                        recv_seq = recved.sequence;
+                // Verify the sender has the correct username
+                if username_recved == peer_username {
+                    recv_seq = recved.sequence;
 
-                        ack = recved.flags.ack && recved.ack.ack_begin == seq;
+                    ack = recved.flags.ack && recved.ack.ack_begin == seq;
 
-                        break;
-                    }
+                    break;
                 }
             }
-            _ => (),
         }
     }
 
@@ -83,34 +87,39 @@ pub fn handshake(
                 return Err(254);
             }
 
-            socket
-                .send_to(&ack_data, address)
-                .expect("Couldn't send sequence");
+            loop {
+                match socket.send_to(&ack_data, address) {
+                    Ok(_) => break,
+                    Err(err) => match err.kind() {
+                        ErrorKind::PermissionDenied => continue,
+                        _ => panic!("Error sending sequence: {}", err),
+                    },
+                }
+            }
 
             let mut buf: [u8; 1024] = [0; 1024];
 
-            match socket.recv(&mut buf) {
-                Ok(size) => {
-                    if size > 0 {
-                        let recved = Packet::from(buf[..size].to_vec());
-                        let username_recved = String::from_utf8(recved.payload.clone())
-                            .expect("Unable to get username");
+            if let Ok(size) = socket.recv(&mut buf) {
+                if size > 0 {
+                    let recved = Packet::from(buf[..size].to_vec());
+                    let username_recved =
+                        String::from_utf8(recved.payload.clone()).expect("Unable to get username");
 
-                        // Verify the sender has the correct username
-                        if username_recved == peer_username && recved.sequence == recv_seq {
-                            if recved.flags.ack && recved.ack.ack_begin == seq {
-                                break;
-                            }
-                        }
+                    // Verify the sender has the correct username
+                    if username_recved == peer_username
+                        && recved.sequence == recv_seq
+                        && recved.flags.ack
+                        && recved.ack.ack_begin == seq
+                    {
+                        break;
                     }
                 }
-                _ => (),
             }
         }
     }
 
     // Start the link
-    let mut link = Link::new(socket, address.clone(), seq, recv_seq, config).unwrap();
+    let mut link = Link::new(socket, address, seq, recv_seq, config).unwrap();
     link.start();
     Ok(link)
 }
