@@ -19,6 +19,7 @@ use crate::link::sendthread::SendThread;
 use crate::packet::PType;
 use crate::packet::Packet;
 
+/// Check if a given packet needs to be acknowledged based on the [`PType`]
 pub fn needs_ack(packet: &Packet) -> bool {
     match packet.flags.p_type {
         PType::Data => true,
@@ -27,23 +28,44 @@ pub fn needs_ack(packet: &Packet) -> bool {
     }
 }
 
+/// Represents a single reliable [`Link`] to another peer
 pub struct Link {
+    /// List of the acknowledgments that have to be sent to the other peer
     ack_list: Arc<Mutex<AcknowledgementList>>,
+    /// List of the acknowledgments received from the other peer
     ack_check: Arc<Mutex<AcknowledgementCheck>>,
+    /// UDP socket used to communicate with the other peer
     socket: Arc<UdpSocket>,
+    /// The address of the other peer
     peer_addr: SocketAddr,
+    /// Queue of packets to be sent to the other peer
     primary_queue: Arc<Mutex<VecDeque<Packet>>>,
+    /// Queue of packets received from the other peer
     output_queue: Arc<Mutex<VecDeque<Packet>>>,
+    /// [`JoinHandle`] for threads created by [`Link`] module
     thread_handles: Vec<JoinHandle<()>>,
+    /// Sequence number for the next packet to be sent
     send_seq: Arc<Mutex<u32>>,
+    /// Keeps track of sequence number of received packets [ Not used yet ]
     recv_seq: Arc<Mutex<u32>>,
+    /// Flag to indicate if the [`Link`] is currently active or not
     stop_flag: Arc<Mutex<bool>>,
+    /// Flag to indicate if the batch queue is empty or not
     batch_empty: Arc<Mutex<bool>>,
+    /// Timeout for receiving packets from the other peer
     read_timeout: Option<Duration>,
+    /// Current configuration for Aether
     config: Config,
 }
 
 impl Link {
+    /// Creates a new [`Link`] to another peer
+    /// # Arguments
+    /// * `socket` - UDP socket used to communicate with the other peer
+    /// * `peer_addr` - Address of the other peer
+    /// * `send_seq` - Sending Sequence number that the Link needs to be initialised with
+    /// * `recv_seq` - Receiving Sequence number that the Link needs to be initialised with
+    /// * `config` - Configuration for Aether
     pub fn new(
         socket: UdpSocket,
         peer_addr: SocketAddr,
@@ -86,6 +108,7 @@ impl Link {
         })
     }
 
+    /// Starts the [`Link`] to the other peer
     pub fn start(&mut self) {
         // Create data structure for the send thread
         let mut send_thread_data = SendThread::new(
@@ -127,6 +150,7 @@ impl Link {
         self.thread_handles.push(recv_thread);
     }
 
+    /// Stops the [`Link`] to the other peer
     pub fn stop(&mut self) -> Result<(), AetherError> {
         // Set the stop flag
         match self.stop_flag.lock() {
@@ -150,6 +174,9 @@ impl Link {
         }
     }
 
+    /// Sends bytes to the other peer
+    /// # Arguments
+    /// * `buf` - Buffer containing the bytes to be sent
     pub fn send(&self, buf: Vec<u8>) -> Result<(), AetherError> {
         // Lock seq number
         match self.send_seq.lock() {
@@ -181,10 +208,18 @@ impl Link {
         }
     }
 
+    /// Sets the read timeout for the [`Link`]
+    /// # Arguments
+    /// * `timeout` - Timeout for receiving packets from the other peer
     pub fn set_read_timout(&mut self, timeout: Duration) {
         self.read_timeout = Some(timeout);
     }
 
+    /// Receive bytes from the other peer or return an error if the timeout is reached
+    /// # Arguments
+    /// * `timeout` - Timeout to wait for receiving packets
+    /// # Returns
+    /// *
     pub fn recv_timeout(&self, timeout: Duration) -> Result<Vec<u8>, AetherError> {
         match self.stop_flag.lock() {
             Ok(flag_lock) => {
