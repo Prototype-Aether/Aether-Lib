@@ -172,6 +172,10 @@ impl Link {
         }
     }
 
+    pub fn get_addr(&self) -> SocketAddr {
+        self.peer_addr.clone()
+    }
+
     /// Sends bytes to the other peer
     /// # Arguments
     /// * `buf` - Buffer containing the bytes to be sent

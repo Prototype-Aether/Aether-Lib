@@ -23,4 +23,8 @@ pub enum AetherError {
     YamlParse(#[from] serde_yaml::Error),
     #[error("Error reading file")]
     FileRead(#[from] std::io::Error),
+    #[error("Other peer cannot be authenticated")]
+    AuthenticationInvalid(String),
+    #[error("Other peer cannot be reached when authenticating")]
+    AuthenticationFailed(String),
 }
