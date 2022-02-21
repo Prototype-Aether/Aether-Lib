@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{net::IpAddr, time::Duration};
 
 use crate::error::AetherError;
 use crate::peer::Peer;
@@ -10,8 +10,6 @@ pub fn authenticate(
     link: Link,
     my_username: String,
     peer_username: String,
-    peer_octets: [u8; 4],
-    peer_port: u16,
     identity_number: u32,
     config: Config,
 ) -> Result<Peer, AetherError> {
@@ -19,6 +17,13 @@ pub fn authenticate(
     // Send own username
     link.send(my_username.clone().into_bytes()).unwrap();
     let delay = thread_rng().gen_range(0..config.aether.delta_time);
+
+    let peer_octets = match link.get_addr().ip() {
+        IpAddr::V4(v4) => v4.octets(),
+        _ => unreachable!("Invalied IP address"),
+    };
+
+    let peer_port = link.get_addr().port();
 
     // Receive other peer's username
     match link.recv_timeout(Duration::from_millis(

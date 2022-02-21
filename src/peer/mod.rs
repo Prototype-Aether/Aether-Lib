@@ -353,10 +353,6 @@ impl Aether {
         let handshake_thread = move |init: Initialized, request: ConnectionRequest| {
             // Initailize data values for handshake
             let peer_ip = IpAddr::V4(Ipv4Addr::from(request.ip));
-            let peer_octets = match peer_ip {
-                IpAddr::V4(ip4) => ip4.octets(),
-                IpAddr::V6(_) => unreachable!(),
-            };
             let peer_addr = SocketAddr::new(peer_ip, request.port);
             let peer_username = request.username;
 
@@ -379,8 +375,6 @@ impl Aether {
                         link,
                         my_username_clone,
                         peer_username.clone(),
-                        peer_octets,
-                        request.port,
                         request.identity_number,
                         config,
                     ) {
