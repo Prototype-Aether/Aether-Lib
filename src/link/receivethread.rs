@@ -14,12 +14,16 @@ use crate::link::needs_ack;
 use crate::packet::PType;
 use crate::packet::Packet;
 
+/// Data structure to facilitate ordering of incoming packets by their sequence number.
 pub struct OrderList {
+    /// Last sequence number till which the packets are ordered.
     seq: u32,
+    /// [`Hashmap`] of packets by their sequence numbers
     list: HashMap<u32, Packet>,
 }
 
 impl OrderList {
+    /// Creates a new [`OrderList`] with the starting sequence number [`seq`].
     pub fn new(seq: u32) -> OrderList {
         OrderList {
             seq,
@@ -27,6 +31,14 @@ impl OrderList {
         }
     }
 
+    /// Insert a packet into the [`OrderList`]
+    /// # Arguments
+    /// * `packet` - The packet to be inserted
+    /// # Returns
+    /// * `VecDeque` - The list of packets that are sequnced till now
+    /// # Errors
+    /// * [`Err(0)`] - If the packet received has already been sequenced before
+    /// * [`Err(1)`] - If no sequnce of packets can be returned till now ???.
     pub fn insert(&mut self, packet: Packet) -> Result<VecDeque<Packet>, u8> {
         match (self.seq).cmp(&(packet.sequence - 1)) {
             Ordering::Less => {
@@ -54,19 +66,25 @@ impl OrderList {
     }
 }
 
+/// Data structure to group data used by the receive thread
 pub struct ReceiveThread {
+    /// The socket used to receive packets
     socket: Arc<UdpSocket>,
+    /// Address of the other peer
     _peer_addr: SocketAddr,
+    /// Reference to the output queue from [`Link`]
     output_queue: Arc<Mutex<VecDeque<Packet>>>,
+    /// Reference to the stop flag from [`Link`]
     stop_flag: Arc<Mutex<bool>>,
-
+    /// Reference to the [`AcknowledgementList`] from [`Link`]
     ack_list: Arc<Mutex<AcknowledgementList>>,
+    /// Reference to the [`AcknowledgementCheck`] from [`Link`]
     ack_check: Arc<Mutex<AcknowledgementCheck>>,
-
+    /// [`OrderList`] used to order received packets by their sequence number
     order_list: OrderList,
-
+    /// Reference to receive sequence from [`Link`]
     _recv_seq: Arc<Mutex<u32>>,
-
+    /// Current configuration for Aether
     config: Config,
 }
 
