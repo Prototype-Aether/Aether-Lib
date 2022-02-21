@@ -35,4 +35,6 @@ pub enum AetherError {
     OpenSSLError(#[from] ErrorStack),
     #[error("Error parsing utf8 string")]
     FromUtf8Error(#[from] FromUtf8Error),
+    #[error("Error decoding base64 string")]
+    Base64DecodeError(#[from] base64::DecodeError),
 }

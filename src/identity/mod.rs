@@ -1,26 +1,44 @@
 use std::{fs, path::PathBuf};
 
 use openssl::{
-    pkey::Private,
+    pkey::{Private, Public},
     rsa::{Padding, Rsa},
 };
 
 use crate::error::AetherError;
 use home::home_dir;
 
+/// Size of RSA keys to be used
 const RSA_SIZE: u32 = 1024;
 
+/// Primitive to represent and store the identity of a user. Used by a user to store their own
+/// identity.
+/// Uses asymmetric encryption as the basis for authentication.
 pub struct Id {
+    /// RSA Private key defining the user
     rsa: Rsa<Private>,
 }
 
+/// Primitive to represent public identity of a user. Used by a user to store other users'
+/// identities
+/// Different from `Id` as it is meant to be used to store only public key. So, only used to
+/// represent identity of other users
+pub struct PublicId {
+    /// RSA public key defining the user
+    rsa: Rsa<Public>,
+}
+
 impl Id {
+    /// Generate a new identity
+    /// # Errors
+    /// * [`AetherError::OpenSSLError`]   -   If the RSA key pair could not be generated
     pub fn new() -> Result<Id, AetherError> {
         Ok(Id {
             rsa: Rsa::generate(RSA_SIZE)?,
         })
     }
 
+    /// Returns [`PathBuf`] to the private key on the filesystem
     pub fn get_private_key_path() -> PathBuf {
         match home_dir() {
             Some(mut home) => {
@@ -31,6 +49,7 @@ impl Id {
         }
     }
 
+    /// Returns [`PathBuf`] to the public key on the filesystem
     pub fn get_public_key_path() -> PathBuf {
         match home_dir() {
             Some(mut home) => {
@@ -41,6 +60,8 @@ impl Id {
         }
     }
 
+    /// Save the current identity on the filesystem
+    /// Saves the public key and the private key in PEM format
     pub fn save(&self) -> Result<(), AetherError> {
         let rsa_public = self.rsa.public_key_to_pem()?;
         let rsa_private = self.rsa.private_key_to_pem()?;
@@ -54,6 +75,8 @@ impl Id {
         }
     }
 
+    /// Load an identity from the default location on the filesystem
+    /// Reads the private key from the default location
     pub fn load() -> Result<Id, AetherError> {
         let private_pem = match fs::read(Self::get_private_key_path()) {
             Ok(data) => data,
@@ -65,6 +88,8 @@ impl Id {
         Ok(Id { rsa })
     }
 
+    /// Try to load the identity from the default location on the filesystem or create a new
+    /// identity. If a new identity is created, it is stored in the default location
     pub fn load_or_generate() -> Result<Id, AetherError> {
         match Self::load() {
             Ok(id) => Ok(id),
@@ -80,32 +105,77 @@ impl Id {
         }
     }
 
+    /// Convert public key to a base64 encoded string
+    /// Encodes public key as DER and then encodes DER into base64
     pub fn public_key_to_base64(&self) -> Result<String, AetherError> {
         let public_key_der = self.rsa.public_key_to_der()?;
         Ok(base64::encode(public_key_der))
     }
 
+    /// Convert private key to a base64 encoded string
+    /// Encodes private key as DER and then encodes DER into base64
     pub fn private_key_to_base64(&self) -> Result<String, AetherError> {
         let private_key_der = self.rsa.private_key_to_der()?;
         Ok(base64::encode(private_key_der))
     }
 
-    pub fn encrypt(&self, from: &[u8]) -> Result<Vec<u8>, AetherError> {
+    /// Encrypt given bytes using the public key
+    pub fn public_encrypt(&self, from: &[u8]) -> Result<Vec<u8>, AetherError> {
         let mut buf: Vec<u8> = vec![0; self.rsa.size() as usize];
         self.rsa.public_encrypt(from, &mut buf, Padding::PKCS1)?;
         Ok(buf.to_vec())
     }
 
-    pub fn decrypt(&self, from: &[u8]) -> Result<Vec<u8>, AetherError> {
+    /// Encrypt given bytes using the private key
+    pub fn private_encrypt(&self, from: &[u8]) -> Result<Vec<u8>, AetherError> {
+        let mut buf: Vec<u8> = vec![0; self.rsa.size() as usize];
+        self.rsa.private_encrypt(from, &mut buf, Padding::PKCS1)?;
+        Ok(buf.to_vec())
+    }
+
+    /// Decrypt given bytes using the public key
+    pub fn public_decrypt(&self, from: &[u8]) -> Result<Vec<u8>, AetherError> {
+        let mut buf: Vec<u8> = vec![0; self.rsa.size() as usize];
+        let size = self.rsa.public_decrypt(from, &mut buf, Padding::PKCS1)?;
+        Ok(buf[..size].to_vec())
+    }
+
+    /// Decrypt given bytes using the private key
+    pub fn private_decrypt(&self, from: &[u8]) -> Result<Vec<u8>, AetherError> {
         let mut buf: Vec<u8> = vec![0; self.rsa.size() as usize];
         let size = self.rsa.private_decrypt(from, &mut buf, Padding::PKCS1)?;
         Ok(buf[..size].to_vec())
     }
 }
 
+impl PublicId {
+    /// Decode the given base64 string into a [`PublicId`]
+    /// # Errors
+    /// * [`AetherError::Base64DecodeError`]    -   If the given string is not valid base64
+    pub fn from_base64(key: &str) -> Result<PublicId, AetherError> {
+        let bytes = base64::decode(key)?;
+        let rsa = Rsa::public_key_from_der(&bytes)?;
+        Ok(Self { rsa })
+    }
+
+    /// Encrypt given bytes using the public key
+    pub fn public_encrypt(&self, from: &[u8]) -> Result<Vec<u8>, AetherError> {
+        let mut buf: Vec<u8> = vec![0; self.rsa.size() as usize];
+        self.rsa.public_encrypt(from, &mut buf, Padding::PKCS1)?;
+        Ok(buf.to_vec())
+    }
+
+    /// Decrypt given bytes using the public key
+    pub fn public_decrypt(&self, from: &[u8]) -> Result<Vec<u8>, AetherError> {
+        let mut buf: Vec<u8> = vec![0; self.rsa.size() as usize];
+        let size = self.rsa.public_decrypt(from, &mut buf, Padding::PKCS1)?;
+        Ok(buf[..size].to_vec())
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::Id;
+    use super::{Id, PublicId};
 
     #[test]
     fn save_test() {
@@ -127,10 +197,26 @@ mod tests {
         let message = String::from("This is a small message");
         let message_bytes = message.as_bytes();
         let id = Id::new().unwrap();
-        let message_encrypted = id.encrypt(message_bytes).unwrap();
-        let message_decrypted = id.decrypt(&message_encrypted).unwrap();
+        let message_encrypted = id.public_encrypt(message_bytes).unwrap();
+        let message_decrypted = id.private_decrypt(&message_encrypted).unwrap();
         let message_out = String::from_utf8(message_decrypted).unwrap();
 
         assert_eq!(message, message_out);
+    }
+
+    #[test]
+    fn signature_test() {
+        let alice_id = Id::new().unwrap();
+        let alice_public =
+            PublicId::from_base64(&alice_id.public_key_to_base64().unwrap()).unwrap();
+
+        let alice_message = "A message to be signed";
+        let alice_message_signed = alice_id.private_encrypt(&alice_message.as_bytes()).unwrap();
+
+        let bob_decrypted_bytes = alice_public.public_decrypt(&alice_message_signed).unwrap();
+
+        let bob_message = String::from_utf8(bob_decrypted_bytes).unwrap();
+
+        assert_eq!(alice_message, bob_message);
     }
 }
