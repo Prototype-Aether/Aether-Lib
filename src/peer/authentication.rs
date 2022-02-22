@@ -59,7 +59,7 @@ pub fn authenticate(
 
         // Create new Peer instance
         let peer = Peer {
-            uid: peer_uid.clone(),
+            uid: peer_uid,
             identity_number,
             link,
         };

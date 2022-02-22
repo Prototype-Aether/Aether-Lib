@@ -77,7 +77,7 @@ mod tests {
             connections: vec![connection],
             username: "test".to_string(),
             req: true,
-            packet_type: 10 as u8,
+            packet_type: 10_u8,
             port: 1234,
             ip: [1, 2, 3, 4],
         };

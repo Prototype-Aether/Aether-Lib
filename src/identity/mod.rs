@@ -273,7 +273,7 @@ mod tests {
             PublicId::from_base64(&alice_id.public_key_to_base64().unwrap()).unwrap();
 
         let alice_message = "A message to be signed";
-        let alice_message_signed = alice_id.private_encrypt(&alice_message.as_bytes()).unwrap();
+        let alice_message_signed = alice_id.private_encrypt(alice_message.as_bytes()).unwrap();
 
         let bob_decrypted_bytes = alice_public.public_decrypt(&alice_message_signed).unwrap();
 

@@ -180,7 +180,7 @@ impl Link {
     }
 
     pub fn get_addr(&self) -> SocketAddr {
-        self.peer_addr.clone()
+        self.peer_addr
     }
 
     /// Sends bytes to the other peer

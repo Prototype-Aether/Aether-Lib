@@ -64,7 +64,7 @@ mod tests {
         aether1
             .send_to(
                 aether2.get_uid(),
-                String::from(send_str1.clone()).into_bytes(),
+                send_str1.clone().into_bytes(),
             )
             .expect("unable to send to peer");
 
@@ -79,7 +79,7 @@ mod tests {
         aether2
             .send_to(
                 aether1.get_uid(),
-                String::from(send_str2.clone()).into_bytes(),
+                send_str2.clone().into_bytes(),
             )
             .expect("unable to send to peer");
 
