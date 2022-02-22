@@ -3,6 +3,7 @@
 pub mod acknowledgement;
 pub mod config;
 pub mod error;
+pub mod identity;
 pub mod link;
 pub mod packet;
 pub mod peer;

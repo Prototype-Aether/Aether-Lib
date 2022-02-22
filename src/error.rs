@@ -1,5 +1,7 @@
 //! Structures to represent errors in `aether_lib`
+use openssl::error::ErrorStack;
 use std::fmt::Debug;
+use std::string::FromUtf8Error;
 use std::time::SystemTimeError;
 use thiserror::Error;
 
@@ -22,9 +24,17 @@ pub enum AetherError {
     #[error("Error parsing yaml string")]
     YamlParse(#[from] serde_yaml::Error),
     #[error("Error reading file")]
-    FileRead(#[from] std::io::Error),
+    FileRead(std::io::Error),
+    #[error("Error writing file")]
+    FileWrite(std::io::Error),
     #[error("Other peer cannot be authenticated")]
     AuthenticationInvalid(String),
     #[error("Other peer cannot be reached when authenticating")]
     AuthenticationFailed(String),
+    #[error("OpenSSL Error")]
+    OpenSSLError(#[from] ErrorStack),
+    #[error("Error parsing utf8 string")]
+    FromUtf8Error(#[from] FromUtf8Error),
+    #[error("Error decoding base64 string")]
+    Base64DecodeError(#[from] base64::DecodeError),
 }
