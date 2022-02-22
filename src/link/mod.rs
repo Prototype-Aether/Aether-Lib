@@ -29,6 +29,7 @@ pub fn needs_ack(packet: &Packet) -> bool {
 }
 
 /// Represents a single reliable [`Link`] to another peer
+#[derive(Debug)]
 pub struct Link {
     /// List of the acknowledgments that have to be sent to the other peer
     ack_list: Arc<Mutex<AcknowledgementList>>,

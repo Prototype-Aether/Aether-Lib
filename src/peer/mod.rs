@@ -14,6 +14,7 @@ use std::net::{IpAddr, Ipv4Addr, UdpSocket};
 use rand::{thread_rng, Rng};
 
 use crate::config::Config;
+use crate::identity::Id;
 use crate::peer::authentication::authenticate;
 use crate::tracker::TrackerPacket;
 use crate::{error::AetherError, link::Link, tracker::ConnectionRequest};
@@ -21,6 +22,7 @@ use crate::{error::AetherError, link::Link, tracker::ConnectionRequest};
 use self::handshake::handshake;
 
 /// Enumeration representing different states of a connection
+#[derive(Debug)]
 pub enum Connection {
     /// Initialized state - connection has been initialized and is waiting to receive
     /// other peer's public identity
@@ -33,25 +35,24 @@ pub enum Connection {
     Failed(Failure),
 }
 
+#[derive(Debug)]
 pub struct Peer {
-    pub username: String,
-    pub ip: [u8; 4],
-    pub port: u16,
+    pub uid: String,
     pub identity_number: u32,
     link: Link,
 }
 
 #[derive(Debug)]
 pub struct Initialized {
-    username: String,
+    uid: String,
     socket: UdpSocket,
     identity_number: u32,
 }
 
 impl Initialized {
-    pub fn new(username: String) -> Initialized {
+    pub fn new(uid: String) -> Initialized {
         Initialized {
-            username,
+            uid,
             socket: UdpSocket::bind(("0.0.0.0", 0)).expect("unable to create socket"),
             identity_number: 1,
         }
@@ -62,14 +63,16 @@ impl Initialized {
 pub struct Failure {
     time: SystemTime,
     socket: UdpSocket,
-    username: String,
+    uid: String,
 }
 
 /// [`Aether`] is an interface used to connect to other peers as well as communicate
 /// with them
 pub struct Aether {
     /// Username assigned to the Aether instance
-    pub username: String,
+    uid: String,
+    /// Identity of user
+    private_id: Id,
     /// The [`UdpSocket`] to be used for communication
     socket: Arc<UdpSocket>,
     /// Queue of connection requests received
@@ -83,8 +86,17 @@ pub struct Aether {
 }
 
 impl Aether {
-    pub fn new(username: String, tracker_addr: SocketAddr) -> Aether {
+    pub fn new(tracker_addr: SocketAddr) -> Self {
+        let private_id = Id::load_or_generate().expect("Error loading identity");
+
+        Self::new_with_id(private_id, tracker_addr)
+    }
+
+    pub fn new_with_id(id: Id, tracker_addr: SocketAddr) -> Self {
         let config = Config::get_config().expect("Error getting config");
+
+        let uid = id.public_key_to_base64().expect("Error getting public key");
+
         let socket = Arc::new(UdpSocket::bind(("0.0.0.0", 0)).unwrap());
         socket
             .set_read_timeout(Some(Duration::from_millis(
@@ -92,13 +104,18 @@ impl Aether {
             )))
             .expect("Unable to set read timeout");
         Aether {
-            username,
+            uid,
+            private_id: id,
             requests: Arc::new(Mutex::new(VecDeque::new())),
             tracker_addr,
             socket,
             connections: Arc::new(Mutex::new(HashMap::new())),
             config,
         }
+    }
+
+    pub fn get_uid(&self) -> &str {
+        &self.uid
     }
 
     pub fn start(&self) {
@@ -108,21 +125,21 @@ impl Aether {
         self.handle_requests();
     }
 
-    pub fn connect(&self, username: String) {
+    pub fn connect(&self, uid: &str) {
         let mut connections_lock = self.connections.lock().expect("Unable to lock peers");
 
-        let is_present = (*connections_lock).get(&username).is_some();
+        let is_present = (*connections_lock).get(uid).is_some();
 
         if !is_present {
-            let initialized = Initialized::new(username.clone());
+            let initialized = Initialized::new(uid.to_string());
 
-            (*connections_lock).insert(username, Connection::Init(initialized));
+            (*connections_lock).insert(uid.to_string(), Connection::Init(initialized));
         }
     }
 
-    pub fn send_to(&self, username: &str, buf: Vec<u8>) -> Result<u8, u8> {
+    pub fn send_to(&self, uid: &str, buf: Vec<u8>) -> Result<u8, u8> {
         let mut connections_lock = self.connections.lock().expect("unable to lock peers list");
-        match (*connections_lock).get_mut(username) {
+        match (*connections_lock).get_mut(uid) {
             Some(connection) => match connection {
                 Connection::Connected(peer) => {
                     peer.link.send(buf).unwrap();
@@ -135,9 +152,9 @@ impl Aether {
         }
     }
 
-    pub fn recv_from(&self, username: &str) -> Result<Vec<u8>, AetherError> {
+    pub fn recv_from(&self, uid: &str) -> Result<Vec<u8>, AetherError> {
         match self.connections.lock() {
-            Ok(mut connections_lock) => match (*connections_lock).get_mut(username) {
+            Ok(mut connections_lock) => match (*connections_lock).get_mut(uid) {
                 Some(Connection::Connected(peer)) => match peer.link.recv() {
                     Ok(recv_vec) => {
                         log::info!("Link Receive Module succesfully initialized.");
@@ -145,28 +162,28 @@ impl Aether {
                     }
                     Err(aether_error) => Err(aether_error),
                 },
-                _ => Err(AetherError::NotConnected(username.to_string())),
+                _ => Err(AetherError::NotConnected(uid.to_string())),
             },
             Err(_) => Err(AetherError::MutexLock("connections")),
         }
     }
 
-    pub fn wait_connection(&self, username: &str) -> Result<u8, u8> {
-        if !self.is_initialized(username) {
-            if self.is_connecting(username) {
-                while self.is_connecting(username) {
+    pub fn wait_connection(&self, uid: &str) -> Result<u8, u8> {
+        if !self.is_initialized(uid) {
+            if self.is_connecting(uid) {
+                while self.is_connecting(uid) {
                     thread::sleep(Duration::from_millis(
                         self.config.aether.connection_check_delay,
                     ));
                 }
                 Ok(0)
-            } else if self.is_connected(username) {
+            } else if self.is_connected(uid) {
                 Ok(0)
             } else {
                 Err(0)
             }
         } else {
-            while !self.is_connected(username) {
+            while !self.is_connected(uid) {
                 thread::sleep(Duration::from_millis(
                     self.config.aether.connection_check_delay,
                 ));
@@ -175,20 +192,17 @@ impl Aether {
         }
     }
 
-    pub fn is_connected(&self, username: &str) -> bool {
+    pub fn is_connected(&self, uid: &str) -> bool {
         let connections_lock = self.connections.lock().expect("unable to lock peers list");
-        matches!(
-            (*connections_lock).get(username),
-            Some(Connection::Connected(_))
-        )
+        matches!((*connections_lock).get(uid), Some(Connection::Connected(_)))
     }
 
-    pub fn is_connecting(&self, username: &str) -> bool {
+    pub fn is_connecting(&self, uid: &str) -> bool {
         let connections_lock = self
             .connections
             .lock()
             .expect("unable to lock connecting list");
-        match (*connections_lock).get(username) {
+        match (*connections_lock).get(uid) {
             Some(connection) => {
                 !matches!(connection, Connection::Failed(_) | Connection::Connected(_))
             }
@@ -196,16 +210,16 @@ impl Aether {
         }
     }
 
-    pub fn is_initialized(&self, username: &str) -> bool {
+    pub fn is_initialized(&self, uid: &str) -> bool {
         let connections_lock = self
             .connections
             .lock()
             .expect("unable to lock connecting list");
-        matches!((*connections_lock).get(username), Some(Connection::Init(_)))
+        matches!((*connections_lock).get(uid), Some(Connection::Init(_)))
     }
 
     fn handle_sockets(&self) {
-        let my_username = self.username.clone();
+        let my_uid = self.uid.clone();
         let connections = self.connections.clone();
         let tracker_addr = self.tracker_addr;
         let config = self.config;
@@ -221,15 +235,15 @@ impl Aether {
                     match connection {
                         Connection::Init(init) => {
                             Self::send_connection_request(
-                                my_username.clone(),
-                                init.username.clone(),
+                                my_uid.clone(),
+                                init.uid.clone(),
                                 &init.socket,
                                 tracker_addr,
                             );
                         }
                         Connection::Failed(failed) => Self::send_connection_request(
-                            my_username.clone(),
-                            failed.username.clone(),
+                            my_uid.clone(),
+                            failed.uid.clone(),
                             &failed.socket,
                             tracker_addr,
                         ),
@@ -245,14 +259,14 @@ impl Aether {
     }
 
     fn send_connection_request(
-        username: String,
-        peer_username: String,
+        uid: String,
+        peer_uid: String,
         socket: &UdpSocket,
         tracker_addr: SocketAddr,
     ) {
         let packet = TrackerPacket {
-            username,
-            peer_username,
+            username: uid,
+            peer_username: peer_uid,
             identity_number: 1,
             packet_type: 2,
             req: true,
@@ -268,7 +282,7 @@ impl Aether {
 
     fn connection_poll(&self) {
         let poll_request = TrackerPacket {
-            username: self.username.clone(),
+            username: self.uid.clone(),
             packet_type: 3,
             req: true,
             ..Default::default()
@@ -311,7 +325,7 @@ impl Aether {
     fn handle_requests(&self) {
         let requests = self.requests.clone();
         let connections = self.connections.clone();
-        let my_username = self.username.clone();
+        let my_uid = self.uid.clone();
         let tracker_addr = self.tracker_addr;
         let config = self.config;
 
@@ -322,7 +336,7 @@ impl Aether {
             if let Some(request) = (*req_lock).pop_front() {
                 Self::handle_request(
                     request,
-                    my_username.clone(),
+                    my_uid.clone(),
                     &mut connections.clone(),
                     tracker_addr,
                     &mut req_lock,
@@ -337,7 +351,7 @@ impl Aether {
 
     fn handle_request(
         request: ConnectionRequest,
-        my_username: String,
+        my_uid: String,
         connections: &mut Arc<Mutex<HashMap<String, Connection>>>,
         tracker_addr: SocketAddr,
         req_lock: &mut MutexGuard<VecDeque<ConnectionRequest>>,
@@ -346,7 +360,7 @@ impl Aether {
         let mut connections_lock = connections.lock().expect("unable to lock failed list");
         // Clone important data to pass to handshake thread
         let connections_clone = connections.clone();
-        let my_username_clone = my_username.clone();
+        let my_uid_clone = my_uid.clone();
 
         let config_clone = config;
 
@@ -354,7 +368,7 @@ impl Aether {
             // Initailize data values for handshake
             let peer_ip = IpAddr::V4(Ipv4Addr::from(request.ip));
             let peer_addr = SocketAddr::new(peer_ip, request.port);
-            let peer_username = request.username;
+            let peer_uid = request.username;
 
             let mut success = false; // This bool DOES in fact get read and modified. Not sure why compiler doesn't recognize its usage.
 
@@ -362,8 +376,8 @@ impl Aether {
             let link_result = handshake(
                 init.socket,
                 peer_addr,
-                my_username_clone.clone(),
-                peer_username.clone(),
+                my_uid_clone.clone(),
+                peer_uid.clone(),
                 config_clone,
             );
 
@@ -371,23 +385,15 @@ impl Aether {
                 Ok(link) => {
                     println!("Handshake success");
 
-                    match authenticate(
-                        link,
-                        my_username_clone,
-                        peer_username.clone(),
-                        request.identity_number,
-                        config,
-                    ) {
+                    match authenticate(link, peer_uid.clone(), request.identity_number, config) {
                         Ok(peer) => {
                             let mut connections_lock =
                                 connections_clone.lock().expect("unable to lock peer list");
 
                             // Add connected peer to connections list
                             // with connected state
-                            (*connections_lock).insert(
-                                peer_username.clone(),
-                                Connection::Connected(Box::new(peer)),
-                            );
+                            (*connections_lock)
+                                .insert(peer_uid.clone(), Connection::Connected(Box::new(peer)));
                             success = true;
                         }
                         Err(AetherError::AuthenticationFailed(_)) => {
@@ -413,11 +419,11 @@ impl Aether {
 
                 // Add failure entry to connection list
                 (*connections_lock).insert(
-                    peer_username.clone(),
+                    peer_uid.clone(),
                     Connection::Failed(Failure {
                         time: SystemTime::now(),
                         socket: UdpSocket::bind(("0.0.0.0", 0)).expect("unable to create socket"),
-                        username: peer_username,
+                        uid: peer_uid,
                     }),
                 );
             }
@@ -430,7 +436,7 @@ impl Aether {
             // Or initailized after receiving connection request from other peer
             Some(Connection::Init(init)) => {
                 // Put current user in handshake state
-                (*connections_lock).insert(init.username.clone(), Connection::Handshake);
+                (*connections_lock).insert(init.uid.clone(), Connection::Handshake);
 
                 // Create a thread to start handshake and establish connection
                 thread::spawn(move || handshake_thread(init, request));
@@ -447,9 +453,9 @@ impl Aether {
                 // then put back in initialized state
                 if elapsed > (config.aether.handshake_retry_delay + delta).into() {
                     (*connections_lock).insert(
-                        failed.username.clone(),
+                        failed.uid.clone(),
                         Connection::Init(Initialized {
-                            username: failed.username,
+                            uid: failed.uid,
                             socket: failed.socket,
                             identity_number: 1,
                         }),
@@ -457,7 +463,7 @@ impl Aether {
                 } else {
                     // If elapsed time is not long enough
                     // insert back into the list
-                    (*connections_lock).insert(failed.username.clone(), Connection::Failed(failed));
+                    (*connections_lock).insert(failed.uid.clone(), Connection::Failed(failed));
                 }
             }
             Some(other) => {
@@ -471,12 +477,12 @@ impl Aether {
                 let connection = Initialized {
                     identity_number: 1,
                     socket: UdpSocket::bind(("0.0.0.0", 0)).expect("unable to create socket"),
-                    username: request.username.clone(),
+                    uid: request.username.clone(),
                 };
 
                 let packet = TrackerPacket {
-                    username: my_username,
-                    peer_username: connection.username.clone(),
+                    username: my_uid,
+                    peer_username: connection.uid.clone(),
                     identity_number: connection.identity_number,
                     packet_type: 2,
                     req: true,

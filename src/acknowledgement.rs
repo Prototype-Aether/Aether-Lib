@@ -137,6 +137,7 @@ impl AcknowledgementCheck {
 /// A structure to store the Acknowledgements that need to be sent.
 /// * Used by receiving module to add Acknowledgements for the packets that are received
 /// * Used by sending module to get Acknowledgements to be sent with the next packet
+#[derive(Debug)]
 pub struct AcknowledgementList {
     /// A `HashMap` to store the sequence numbers of packets from `ack_begin` to
     /// `ack_begin + ack_end` that have been received and need to be acknowledged
