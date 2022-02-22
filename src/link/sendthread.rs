@@ -58,7 +58,6 @@ impl SendThread {
     }
 
     pub fn start(&mut self) {
-        //println!("Starting send thread...");
         loop {
             // If stop flag is set stop the thread
             let flag_lock = self.stop_flag.lock().expect("Error locking stop flag");
@@ -71,12 +70,13 @@ impl SendThread {
             match self.batch_queue.pop_front() {
                 Some(mut packet) => {
                     if packet.is_meta {
-                        if !self.batch_queue.is_empty() {
-                            // If this is a meta packet check if it requires a delay
-                            if packet.meta.delay_ms > 0 {
-                                thread::sleep(Duration::from_millis(packet.meta.delay_ms));
-                            }
+                        // If this is a meta packet check if it requires a delay
+                        if packet.meta.delay_ms > 0 {
+                            thread::sleep(Duration::from_millis(packet.meta.delay_ms));
+                        }
 
+                        // only increase delays if batch queue still has packets to send
+                        if !self.batch_queue.is_empty() {
                             // Increase retry count since after this same packets
                             // will be sent again
                             let retry_count = packet.meta.retry_count + 1;
@@ -106,12 +106,13 @@ impl SendThread {
                     self.fetch_window();
                     let mut empty_lock = self.is_empty.lock().expect("Unable to lock empty bool");
 
-                    let retry_delay = 0;
+                    let mut retry_delay = 0;
                     // If still empty
                     if self.batch_queue.is_empty() {
                         (*empty_lock) = true;
                         // Send a ack only packet (with empty payload)
                         self.batch_queue.push_back(self.ack_packet());
+                        retry_delay = self.config.link.ack_only_time;
                     } else {
                         (*empty_lock) = false;
                     }
@@ -132,8 +133,6 @@ impl SendThread {
                 }
             }
         }
-
-        //println!("Stopping send thread...");
     }
 
     pub fn is_empty(&self) -> bool {
