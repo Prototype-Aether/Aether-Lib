@@ -1,3 +1,5 @@
+use rand::{rngs::OsRng, RngCore};
+
 /// Compile a 32-bit value into vector of bytes
 ///
 /// # Arguments
@@ -33,4 +35,23 @@ pub fn compile_u32(nu32: u32) -> Vec<u8> {
 /// ```
 pub fn compile_u16(nu16: u16) -> Vec<u8> {
     vec![(nu16 >> 8) as u8, nu16 as u8]
+}
+
+/// Generate a random nonce of the given size in bytes
+///
+/// # Arguments
+///
+/// * `size`    -   Size of the nonce in bytes
+///
+/// # Examples
+///
+/// ```
+/// use aether_lib::util::gen_nonce;
+/// // to generate a 16 bytes nonce
+/// let nonce = gen_nonce(16);
+/// ```
+pub fn gen_nonce(size: u8) -> Vec<u8> {
+    let mut buf = vec![0u8; size as usize];
+    OsRng.fill_bytes(&mut buf);
+    buf
 }
