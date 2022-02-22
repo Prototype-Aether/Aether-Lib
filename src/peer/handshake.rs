@@ -1,3 +1,4 @@
+use crate::identity::Id;
 use crate::{acknowledgement::Acknowledgement, config::Config, packet::Packet};
 use crate::{link::Link, packet::PType};
 use std::io::ErrorKind;
@@ -9,10 +10,11 @@ use std::{
 use rand::{thread_rng, Rng};
 
 pub fn handshake(
+    private_id: Id,
     socket: UdpSocket,
     address: SocketAddr,
-    my_username: String,
-    peer_username: String,
+    my_uid: String,
+    peer_uid: String,
     config: Config,
 ) -> Result<Link, u8> {
     let seq = thread_rng().gen_range(0..(1 << 16_u32)) as u32;
@@ -25,7 +27,7 @@ pub fn handshake(
         .expect("Unable to set read timeout");
 
     let mut packet = Packet::new(PType::Initiation, seq);
-    packet.append_payload(my_username.into_bytes());
+    packet.append_payload(my_uid.into_bytes());
 
     let sequence_data = packet.compile();
 
@@ -53,11 +55,11 @@ pub fn handshake(
         if let Ok(size) = socket.recv(&mut buf) {
             if size > 0 {
                 let recved = Packet::from(buf[..size].to_vec());
-                let username_recved =
-                    String::from_utf8(recved.payload.clone()).expect("Unable to get username");
+                let uid_recved =
+                    String::from_utf8(recved.payload.clone()).expect("Unable to get uid");
 
-                // Verify the sender has the correct username
-                if username_recved == peer_username {
+                // Verify the sender has the correct uid
+                if uid_recved == peer_uid {
                     recv_seq = recved.sequence;
 
                     ack = recved.flags.ack && recved.ack.ack_begin == seq;
@@ -102,11 +104,11 @@ pub fn handshake(
             if let Ok(size) = socket.recv(&mut buf) {
                 if size > 0 {
                     let recved = Packet::from(buf[..size].to_vec());
-                    let username_recved =
-                        String::from_utf8(recved.payload.clone()).expect("Unable to get username");
+                    let uid_recved =
+                        String::from_utf8(recved.payload.clone()).expect("Unable to get uid");
 
-                    // Verify the sender has the correct username
-                    if username_recved == peer_username
+                    // Verify the sender has the correct uid
+                    if uid_recved == peer_uid
                         && recved.sequence == recv_seq
                         && recved.flags.ack
                         && recved.ack.ack_begin == seq
@@ -119,7 +121,7 @@ pub fn handshake(
     }
 
     // Start the link
-    let mut link = Link::new(socket, address, seq, recv_seq, config).unwrap();
+    let mut link = Link::new(private_id, socket, address, seq, recv_seq, config).unwrap();
     link.start();
     Ok(link)
 }

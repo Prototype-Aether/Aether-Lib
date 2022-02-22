@@ -60,6 +60,7 @@ pub const RSA_SIZE: u32 = 1024;
 /// Primitive to represent and store the identity of a user. Used by a user to store their own
 /// identity.
 /// Uses asymmetric encryption as the basis for authentication.
+#[derive(Debug, Clone)]
 pub struct Id {
     /// RSA Private key defining the user
     rsa: Rsa<Private>,
@@ -234,6 +235,8 @@ impl PublicId {
 
 #[cfg(test)]
 mod tests {
+    use crate::util::gen_nonce;
+
     use super::{Id, PublicId};
 
     #[test]
@@ -270,12 +273,38 @@ mod tests {
             PublicId::from_base64(&alice_id.public_key_to_base64().unwrap()).unwrap();
 
         let alice_message = "A message to be signed";
-        let alice_message_signed = alice_id.private_encrypt(&alice_message.as_bytes()).unwrap();
+        let alice_message_signed = alice_id.private_encrypt(alice_message.as_bytes()).unwrap();
 
         let bob_decrypted_bytes = alice_public.public_decrypt(&alice_message_signed).unwrap();
 
         let bob_message = String::from_utf8(bob_decrypted_bytes).unwrap();
 
         assert_eq!(alice_message, bob_message);
+    }
+
+    #[test]
+    fn authentication_test() {
+        let alice_id = Id::new().unwrap();
+        // Alice publishes her public key
+        let alice_public =
+            PublicId::from_base64(&alice_id.public_key_to_base64().unwrap()).unwrap();
+
+        // bob generates a random 256 bit number
+        let bob_nonce = gen_nonce(32);
+
+        // bob encrypts nonce with alice's public key and sends to alice
+        let bob_challenge = alice_public.public_encrypt(&bob_nonce).unwrap();
+
+        // alice decrypts the nonce with her private key and sends to bob
+        let alice_response = alice_id.private_decrypt(&bob_challenge).unwrap();
+
+        println!(
+            "{} == {}",
+            base64::encode(bob_nonce.clone()),
+            base64::encode(alice_response.clone())
+        );
+        // if bob receives the same random nonce, alice owns the private key corresponding to the
+        // public key
+        assert_eq!(bob_nonce, alice_response);
     }
 }

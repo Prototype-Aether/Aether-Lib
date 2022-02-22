@@ -14,6 +14,7 @@ use std::time::SystemTime;
 use crate::acknowledgement::{AcknowledgementCheck, AcknowledgementList};
 use crate::config::Config;
 use crate::error::AetherError;
+use crate::identity::Id;
 use crate::link::receivethread::ReceiveThread;
 use crate::link::sendthread::SendThread;
 use crate::packet::PType;
@@ -29,7 +30,10 @@ pub fn needs_ack(packet: &Packet) -> bool {
 }
 
 /// Represents a single reliable [`Link`] to another peer
+#[derive(Debug)]
 pub struct Link {
+    /// Identity of the user that created this identity
+    pub private_id: Id,
     /// List of the acknowledgments that have to be sent to the other peer
     ack_list: Arc<Mutex<AcknowledgementList>>,
     /// List of the acknowledgments received from the other peer
@@ -61,12 +65,14 @@ pub struct Link {
 impl Link {
     /// Creates a new [`Link`] to another peer
     /// # Arguments
+    /// * `id` - [`Id`] of the user that is creating this link
     /// * `socket` - UDP socket used to communicate with the other peer
     /// * `peer_addr` - Address of the other peer
     /// * `send_seq` - Sending Sequence number that the Link needs to be initialised with
     /// * `recv_seq` - Receiving Sequence number that the Link needs to be initialised with
     /// * `config` - Configuration for Aether
     pub fn new(
+        id: Id,
         socket: UdpSocket,
         peer_addr: SocketAddr,
         send_seq: u32,
@@ -89,6 +95,7 @@ impl Link {
         let stop_flag = Arc::new(Mutex::new(false));
         let batch_empty = Arc::new(Mutex::new(false));
         Ok(Link {
+            private_id: id,
             ack_list: Arc::new(Mutex::new(AcknowledgementList::new(recv_seq))),
             ack_check: Arc::new(Mutex::new(AcknowledgementCheck::new(send_seq))),
             peer_addr,
@@ -173,7 +180,7 @@ impl Link {
     }
 
     pub fn get_addr(&self) -> SocketAddr {
-        self.peer_addr.clone()
+        self.peer_addr
     }
 
     /// Sends bytes to the other peer

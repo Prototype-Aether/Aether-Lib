@@ -5,6 +5,7 @@ mod tests {
     use std::time::Duration;
 
     use aether_lib::config::Config;
+    use aether_lib::identity::Id;
     use aether_lib::link::Link;
     use aether_lib::peer::handshake::handshake;
     #[test]
@@ -15,11 +16,14 @@ mod tests {
         let mut peer_addr1 = socket1.local_addr().unwrap();
         let mut peer_addr2 = socket2.local_addr().unwrap();
 
+        let id1 = Id::new().unwrap();
+        let id2 = Id::new().unwrap();
+
         peer_addr1.set_ip(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)));
         peer_addr2.set_ip(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)));
 
-        let mut link1 = Link::new(socket1, peer_addr2, 0, 1000, Config::default()).unwrap();
-        let mut link2 = Link::new(socket2, peer_addr1, 1000, 0, Config::default()).unwrap();
+        let mut link1 = Link::new(id1, socket1, peer_addr2, 0, 1000, Config::default()).unwrap();
+        let mut link2 = Link::new(id2, socket2, peer_addr1, 1000, 0, Config::default()).unwrap();
 
         println!("{:?} {:?}", peer_addr1, peer_addr2);
 
@@ -62,6 +66,15 @@ mod tests {
         let socket1 = UdpSocket::bind(("0.0.0.0", 0)).unwrap();
         let socket2 = UdpSocket::bind(("0.0.0.0", 0)).unwrap();
 
+        let id1 = Id::new().unwrap();
+        let id2 = Id::new().unwrap();
+
+        let uid1 = id1.public_key_to_base64().unwrap();
+        let uid2 = id2.public_key_to_base64().unwrap();
+
+        let uid1_clone = uid1.clone();
+        let uid2_clone = uid2.clone();
+
         let peer_addr1 = SocketAddr::new(
             IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
             socket1.local_addr().unwrap().port(),
@@ -77,10 +90,11 @@ mod tests {
 
         let send_thread = thread::spawn(move || {
             let link = handshake(
+                id1,
                 socket1,
                 peer_addr2,
-                String::from("peer1"),
-                String::from("peer2"),
+                uid1,
+                uid2_clone,
                 Config::default(),
             )
             .expect("Handshake failed");
@@ -103,10 +117,11 @@ mod tests {
 
         let recv_thread = thread::spawn(move || {
             let link = handshake(
+                id2,
                 socket2,
                 peer_addr1,
-                String::from("peer2"),
-                String::from("peer1"),
+                uid2,
+                uid1_clone,
                 Config::default(),
             )
             .expect("Handshake failed");
