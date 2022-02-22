@@ -86,23 +86,29 @@ impl Id {
 
     /// Returns [`PathBuf`] to the private key on the filesystem
     pub fn get_private_key_path() -> PathBuf {
-        match home_dir() {
-            Some(mut home) => {
-                home.push(".config/aether/private_key.pem");
-                home
-            }
-            None => PathBuf::from("./private_key.pem"),
-        }
+        let mut config = Self::get_config_dir();
+        config.push("private_key.pem");
+        config
     }
 
     /// Returns [`PathBuf`] to the public key on the filesystem
     pub fn get_public_key_path() -> PathBuf {
+        let mut config = Self::get_config_dir();
+        config.push("public_key.pem");
+        config
+    }
+
+    /// Returns [`PathBuf`] to the config directory on the filesystem
+    fn get_config_dir() -> PathBuf {
         match home_dir() {
             Some(mut home) => {
-                home.push(".config/aether/public_key.pem");
-                home
+                home.push(".config/aether/");
+                match fs::create_dir_all(home.clone()) {
+                    Ok(()) => home,
+                    Err(_) => PathBuf::from("./"),
+                }
             }
-            None => PathBuf::from("./public_key.pem"),
+            None => PathBuf::from("./"),
         }
     }
 
