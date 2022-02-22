@@ -1,3 +1,49 @@
+//! Primitives for representing PKC based user identities. Used to identify and authenticate users
+//! as well as for key exchange.
+//!
+//! Current implementation uses RSA as the asymmetric encryption algorithm. But can be replaced in
+//! the future in favor of more efficient algorithms.
+//!
+//! # Identity Storage
+//!
+//! The [`Id`] is stored in `$HOME/.config/aether/` by default. If `$HOME` cannot be resolved, the
+//! current working directory is used instead.
+//!
+//! # OpenSSL Errors
+//!
+//! This library uses the [OpenSSL wrapper](https://crates.io/crates/openssl) for encryption
+//! purposes. So, some of the functions can return [`AetherError::OpenSSLError`].
+//! Check [`openssl::error::ErrorStack`] for detailed description of OpenSSL errors.
+//!
+//! Refer: [https://www.openssl.org/](https://www.openssl.org/)
+//!
+//! # Examples
+//!
+//! To load a new identity from the filesystem or create a new identity if not found use
+//! `load_or_generate()`
+//!
+//! ```
+//! use aether_lib::identity::Id;
+//!
+//! let id = Id::load_or_generate().unwrap();
+//! let plain_text = "A message to be encrypted";
+//! // Returns a Vec<u8> of cipher text bytes
+//! let cipher_text_bytes = id.public_encrypt(&plain_text.as_bytes()).unwrap();
+//! // Returns a Vec<u8> of decrypted bytes
+//! let decrypted_text_bytes = id.private_decrypt(&cipher_text_bytes).unwrap();
+//!
+//! let plain_text_decrypted = String::from_utf8(decrypted_text_bytes).unwrap();
+//!
+//! assert_eq!(plain_text, plain_text_decrypted);
+//! ```
+//!
+//! To generate a new identity use `new()`
+//!
+//! ```
+//! use aether_lib::identity::Id;
+//!
+//! let id = Id::new().unwrap();
+//! ```
 use std::{fs, path::PathBuf};
 
 use openssl::{
@@ -9,7 +55,7 @@ use crate::error::AetherError;
 use home::home_dir;
 
 /// Size of RSA keys to be used
-const RSA_SIZE: u32 = 1024;
+pub const RSA_SIZE: u32 = 1024;
 
 /// Primitive to represent and store the identity of a user. Used by a user to store their own
 /// identity.
@@ -156,6 +202,13 @@ impl PublicId {
         let bytes = base64::decode(key)?;
         let rsa = Rsa::public_key_from_der(&bytes)?;
         Ok(Self { rsa })
+    }
+
+    /// Convert public key to a base64 encoded string
+    /// Encodes public key as DER and then encodes DER into base64
+    pub fn public_key_to_base64(&self) -> Result<String, AetherError> {
+        let public_key_der = self.rsa.public_key_to_der()?;
+        Ok(base64::encode(public_key_der))
     }
 
     /// Encrypt given bytes using the public key
