@@ -1,3 +1,4 @@
+use crate::identity::Id;
 use crate::{acknowledgement::Acknowledgement, config::Config, packet::Packet};
 use crate::{link::Link, packet::PType};
 use std::io::ErrorKind;
@@ -9,6 +10,7 @@ use std::{
 use rand::{thread_rng, Rng};
 
 pub fn handshake(
+    private_id: Id,
     socket: UdpSocket,
     address: SocketAddr,
     my_uid: String,
@@ -119,7 +121,7 @@ pub fn handshake(
     }
 
     // Start the link
-    let mut link = Link::new(socket, address, seq, recv_seq, config).unwrap();
+    let mut link = Link::new(private_id, socket, address, seq, recv_seq, config).unwrap();
     link.start();
     Ok(link)
 }

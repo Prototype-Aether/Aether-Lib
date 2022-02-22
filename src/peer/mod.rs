@@ -328,6 +328,7 @@ impl Aether {
         let my_uid = self.uid.clone();
         let tracker_addr = self.tracker_addr;
         let config = self.config;
+        let private_id = self.private_id.clone();
 
         thread::spawn(move || loop {
             let mut req_lock = requests.lock().expect("Unable to lock requests queue");
@@ -335,6 +336,7 @@ impl Aether {
             // For each request received
             if let Some(request) = (*req_lock).pop_front() {
                 Self::handle_request(
+                    private_id.clone(),
                     request,
                     my_uid.clone(),
                     &mut connections.clone(),
@@ -350,6 +352,7 @@ impl Aether {
     }
 
     fn handle_request(
+        private_id: Id,
         request: ConnectionRequest,
         my_uid: String,
         connections: &mut Arc<Mutex<HashMap<String, Connection>>>,
@@ -374,6 +377,7 @@ impl Aether {
 
             // Start handshake
             let link_result = handshake(
+                private_id,
                 init.socket,
                 peer_addr,
                 my_uid_clone.clone(),

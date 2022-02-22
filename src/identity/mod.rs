@@ -60,6 +60,7 @@ pub const RSA_SIZE: u32 = 1024;
 /// Primitive to represent and store the identity of a user. Used by a user to store their own
 /// identity.
 /// Uses asymmetric encryption as the basis for authentication.
+#[derive(Debug, Clone)]
 pub struct Id {
     /// RSA Private key defining the user
     rsa: Rsa<Private>,

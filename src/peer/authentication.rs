@@ -1,10 +1,14 @@
-use std::{net::IpAddr, time::Duration};
+use std::time::Duration;
 
+use crate::identity::PublicId;
 use crate::peer::Peer;
 use crate::{error::AetherError, util::gen_nonce};
 use rand::{thread_rng, Rng};
 
 use crate::{config::Config, link::Link};
+
+/// Size of the nonce to be used in authentication in bytes
+pub const NONCE_SIZE: u8 = 32;
 
 pub fn authenticate(
     link: Link,
@@ -17,12 +21,13 @@ pub fn authenticate(
     let delta = thread_rng().gen_range(0..config.aether.delta_time);
     let recv_timeout = Duration::from_millis(config.aether.handshake_retry_delay + delta);
 
-    let nonce = gen_nonce(32);
+    let other_id = PublicId::from_base64(&peer_uid)?;
 
     // generate nonce
-    link.send(nonce.clone()).unwrap();
+    let nonce = gen_nonce(NONCE_SIZE);
 
-    // TODO: encrypt nonce with public key
+    // encrypt nonce with public key and send to other peer
+    link.send(other_id.public_encrypt(&nonce)?).unwrap();
 
     // receive encrypted nonce
     let nonce_enc = match link.recv_timeout(recv_timeout) {
@@ -34,9 +39,10 @@ pub fn authenticate(
     };
 
     // TODO: Decrypt nonce received
+    let nonce_dec = link.private_id.private_decrypt(&nonce_enc)?;
 
     // send decrypted nonce
-    link.send(nonce_enc).unwrap();
+    link.send(nonce_dec).unwrap();
 
     // receive decrypted nonce
     let nonce_recv = match link.recv_timeout(recv_timeout) {
