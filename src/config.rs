@@ -75,6 +75,9 @@ pub struct LinkConfig {
     pub timeout: u64,
     /// Time to wait for acknowledgment before sending packets again
     pub retry_delay: u64,
+    /// Time to wait before sending another acknowledgment only packet when primary queue is empty
+    /// i.e. no more packets to be sent
+    pub ack_only_time: u64,
     /// Number of times a packet can be retried before link is declared as broken
     pub max_retries: i16,
 }
@@ -194,6 +197,7 @@ impl Default for LinkConfig {
             poll_time_us: 100,
             timeout: 10_000,
             retry_delay: 100,
+            ack_only_time: 100,
             max_retries: 10,
         }
     }

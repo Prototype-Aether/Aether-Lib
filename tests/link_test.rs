@@ -2,6 +2,7 @@
 mod tests {
     use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
     use std::thread;
+    use std::time::Duration;
 
     use aether_lib::config::Config;
     use aether_lib::link::Link;
@@ -33,6 +34,7 @@ mod tests {
 
         for x in &data {
             link1.send(x.clone()).unwrap();
+            thread::sleep(Duration::from_millis(10));
         }
 
         let mut count = 0;
