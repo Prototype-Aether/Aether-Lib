@@ -325,8 +325,10 @@ impl Aether {
                     TrackerPacket::try_from(response_data).expect("Unable to decode packet");
 
                 for v in response_packet.connections {
+                    trace!("{:?}", v);
                     let mut req_lock = requests.lock().expect("unable to lock request queue");
                     (*req_lock).push_back(v);
+                    trace!("{:?}", *req_lock);
                 }
 
                 thread::sleep(Duration::from_millis(config.aether.server_poll_time));
