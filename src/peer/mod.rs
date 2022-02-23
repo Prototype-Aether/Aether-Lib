@@ -370,6 +370,7 @@ impl Aether {
         req_lock: &mut MutexGuard<VecDeque<ConnectionRequest>>,
         config: Config,
     ) {
+        trace!("got request");
         let mut connections_lock = connections.lock().expect("unable to lock failed list");
         // Clone important data to pass to handshake thread
         let connections_clone = connections.clone();
@@ -385,6 +386,7 @@ impl Aether {
 
             let mut success = false; // This bool DOES in fact get read and modified. Not sure why compiler doesn't recognize its usage.
 
+            trace!("starting handshake");
             // Start handshake
             let link_result = handshake(
                 private_id,
@@ -455,6 +457,7 @@ impl Aether {
                 // Put current user in handshake state
                 (*connections_lock).insert(init.uid.clone(), Connection::Handshake);
 
+                trace!("Got initialized");
                 // Create a thread to start handshake and establish connection
                 thread::spawn(move || handshake_thread(init, request));
             }
