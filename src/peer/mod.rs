@@ -309,7 +309,6 @@ impl Aether {
         let config = self.config;
 
         thread::spawn(move || loop {
-            trace!("polling tracker");
             socket
                 .send_to(&data_bytes, tracker_addr)
                 .expect("Unable to send to server");
@@ -320,17 +319,12 @@ impl Aether {
             };
 
             if !response_data.is_empty() {
-                trace!("Received request from server");
                 let response_packet =
                     TrackerPacket::try_from(response_data).expect("Unable to decode packet");
 
-                trace!("decoded packet {:?}", response_packet);
-
                 for v in response_packet.connections {
-                    trace!("{:?}", v);
                     let mut req_lock = requests.lock().expect("unable to lock request queue");
                     (*req_lock).push_back(v);
-                    trace!("{:?}", *req_lock);
                 }
 
                 thread::sleep(Duration::from_millis(config.aether.server_poll_time));
@@ -339,7 +333,6 @@ impl Aether {
     }
 
     fn handle_requests(&self) {
-        trace!("Handle thread...");
         let requests = self.requests.clone();
         let connections = self.connections.clone();
         let my_uid = self.uid.clone();
@@ -352,7 +345,6 @@ impl Aether {
 
             // For each request received
             if let Some(request) = (*req_lock).pop_front() {
-                trace!("some request");
                 Self::handle_request(
                     private_id.clone(),
                     request,
@@ -378,7 +370,6 @@ impl Aether {
         req_lock: &mut MutexGuard<VecDeque<ConnectionRequest>>,
         config: Config,
     ) {
-        trace!("got request");
         let mut connections_lock = connections.lock().expect("unable to lock failed list");
         // Clone important data to pass to handshake thread
         let connections_clone = connections.clone();
@@ -394,7 +385,6 @@ impl Aether {
 
             let mut success = false; // This bool DOES in fact get read and modified. Not sure why compiler doesn't recognize its usage.
 
-            trace!("starting handshake");
             // Start handshake
             let link_result = handshake(
                 private_id,
@@ -411,16 +401,13 @@ impl Aether {
 
                     match authenticate(link, peer_uid.clone(), request.identity_number, config) {
                         Ok(peer) => {
-                            trace!("got peer");
                             let mut connections_lock =
                                 connections_clone.lock().expect("unable to lock peer list");
 
-                            trace!("got connections lock");
                             // Add connected peer to connections list
                             // with connected state
                             (*connections_lock)
                                 .insert(peer_uid.clone(), Connection::Connected(Box::new(peer)));
-                            trace!("inserted connected");
                             success = true;
                         }
                         Err(AetherError::AuthenticationFailed(_)) => {
@@ -465,7 +452,6 @@ impl Aether {
                 // Put current user in handshake state
                 (*connections_lock).insert(init.uid.clone(), Connection::Handshake);
 
-                trace!("Got initialized");
                 // Create a thread to start handshake and establish connection
                 thread::spawn(move || handshake_thread(init, request));
             }
