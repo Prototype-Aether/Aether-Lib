@@ -180,11 +180,8 @@ impl Aether {
 
     pub fn wait_connection(&self, uid: &str) -> Result<u8, u8> {
         if !self.is_initialized(uid) {
-            trace!("init");
             if self.is_connecting(uid) {
-                trace!("connecting");
                 while self.is_connecting(uid) {
-                    trace!("waiting");
                     thread::sleep(Duration::from_millis(
                         self.config.aether.connection_check_delay,
                     ));
@@ -197,7 +194,6 @@ impl Aether {
             }
         } else {
             while !self.is_connected(uid) {
-                trace!("waiting");
                 thread::sleep(Duration::from_millis(
                     self.config.aether.connection_check_delay,
                 ));
