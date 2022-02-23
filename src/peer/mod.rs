@@ -335,6 +335,7 @@ impl Aether {
     }
 
     fn handle_requests(&self) {
+        trace!("Handle thread...");
         let requests = self.requests.clone();
         let connections = self.connections.clone();
         let my_uid = self.uid.clone();
