@@ -309,6 +309,7 @@ impl Aether {
         let config = self.config;
 
         thread::spawn(move || loop {
+            trace!("polling tracker");
             socket
                 .send_to(&data_bytes, tracker_addr)
                 .expect("Unable to send to server");
@@ -319,6 +320,7 @@ impl Aether {
             };
 
             if !response_data.is_empty() {
+                trace!("Received request from server");
                 let response_packet =
                     TrackerPacket::try_from(response_data).expect("Unable to decode packet");
 
