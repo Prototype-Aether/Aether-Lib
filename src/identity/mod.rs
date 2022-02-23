@@ -46,6 +46,7 @@
 //! ```
 use std::{fs, path::PathBuf};
 
+use log::warn;
 use openssl::{
     pkey::{Private, Public},
     rsa::{Padding, Rsa},
@@ -147,7 +148,7 @@ impl Id {
         match Self::load() {
             Ok(id) => Ok(id),
             Err(AetherError::FileRead(err)) => {
-                println!("Error reading key: {}", err);
+                warn!("Unable to read key: {}", err);
                 let new_id = Self::new()?;
                 match new_id.save() {
                     Ok(()) => Ok(new_id),

@@ -1,6 +1,8 @@
 pub mod authentication;
 pub mod handshake;
 
+use log::{error, trace};
+
 use std::collections::VecDeque;
 use std::convert::TryFrom;
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -119,7 +121,7 @@ impl Aether {
     }
 
     pub fn start(&self) {
-        println!("Starting aether service...");
+        trace!("Starting aether service...");
         self.connection_poll();
         self.handle_sockets();
         self.handle_requests();
@@ -387,7 +389,7 @@ impl Aether {
 
             match link_result {
                 Ok(link) => {
-                    println!("Handshake success");
+                    trace!("Handshake success");
 
                     match authenticate(link, peer_uid.clone(), request.identity_number, config) {
                         Ok(peer) => {
@@ -401,10 +403,10 @@ impl Aether {
                             success = true;
                         }
                         Err(AetherError::AuthenticationFailed(_)) => {
-                            println!("Cannot reach");
+                            trace!("Cannot reach");
                         }
                         Err(AetherError::AuthenticationInvalid(_)) => {
-                            println!("Identity could not be authenticated")
+                            error!("Identity could not be authenticated")
                         }
                         Err(other) => {
                             panic!("Unexpected error {}", other);
@@ -412,7 +414,7 @@ impl Aether {
                     }
                 }
                 Err(e) => {
-                    println!("Handshake failed {}", e);
+                    trace!("Handshake failed {}", e);
                 }
             }
 

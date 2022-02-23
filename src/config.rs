@@ -11,6 +11,7 @@
 //! leave any missing values in the configuration file as the values need to follow certain
 //! constaints. For example, `handshake_timeout` cannot be smaller than `peer_poll_time` because in
 //! such a case, the handshake would timeout before even a single poll is complete.
+use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use std::{convert::TryFrom, default::Default, fs, path::Path};
 
@@ -129,7 +130,7 @@ impl Config {
 
                 let path = path_buf.as_path();
 
-                println!(
+                info!(
                     "Reading configuration from {}",
                     path.to_str().unwrap_or("Cannot parse path")
                 );
@@ -138,7 +139,7 @@ impl Config {
                     Ok(config) => Ok(config),
                     Err(err) => match err {
                         AetherError::FileRead(file_err) => {
-                            println!("{:?}", file_err);
+                            warn!("{:?}", file_err);
                             Ok(Config::default())
                         }
                         _ => Err(err),
