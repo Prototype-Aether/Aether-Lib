@@ -347,6 +347,7 @@ impl Aether {
 
             // For each request received
             if let Some(request) = (*req_lock).pop_front() {
+                trace!("some request");
                 Self::handle_request(
                     private_id.clone(),
                     request,
