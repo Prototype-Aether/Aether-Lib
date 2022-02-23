@@ -324,6 +324,8 @@ impl Aether {
                 let response_packet =
                     TrackerPacket::try_from(response_data).expect("Unable to decode packet");
 
+                trace!("decoded packet {:?}", response_packet);
+
                 for v in response_packet.connections {
                     trace!("{:?}", v);
                     let mut req_lock = requests.lock().expect("unable to lock request queue");
