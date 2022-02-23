@@ -155,18 +155,26 @@ impl Aether {
     }
 
     pub fn recv_from(&self, uid: &str) -> Result<Vec<u8>, AetherError> {
-        match self.connections.lock() {
-            Ok(mut connections_lock) => match (*connections_lock).get_mut(uid) {
-                Some(Connection::Connected(peer)) => match peer.link.recv() {
-                    Ok(recv_vec) => {
-                        log::info!("Link Receive Module succesfully initialized.");
-                        Ok(recv_vec)
-                    }
-                    Err(aether_error) => Err(aether_error),
-                },
-                _ => Err(AetherError::NotConnected(uid.to_string())),
-            },
-            Err(_) => Err(AetherError::MutexLock("connections")),
+        loop {
+            let connections_lock = match self.connections.lock() {
+                Ok(lock) => lock,
+                Err(_) => return Err(AetherError::MutexLock("connections")),
+            };
+
+            let peer = match (*connections_lock).get(uid) {
+                Some(Connection::Connected(peer)) => peer,
+                _ => return Err(AetherError::NotConnected(uid.to_string())),
+            };
+
+            match peer.link.recv_timeout(Duration::from_millis(1)) {
+                Ok(data) => return Ok(data),
+                Err(AetherError::RecvTimeout) => {}
+                Err(err) => return Err(err),
+            }
+
+            drop(connections_lock);
+
+            thread::sleep(Duration::from_millis(10));
         }
     }
 
