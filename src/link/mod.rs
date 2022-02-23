@@ -82,11 +82,8 @@ impl Link {
         let socket = Arc::new(socket);
 
         // if - let for errors
-        match socket.set_read_timeout(Some(Duration::from_secs(1))) {
-            Ok(_) => {}
-            Err(_) => {
-                return Err(AetherError::SetReadTimeout);
-            }
+        if let Err(_) = socket.set_read_timeout(Some(Duration::from_secs(1))) {
+            return Err(AetherError::SetReadTimeout);
         }
 
         let primary_queue = Arc::new(Mutex::new(VecDeque::new()));
