@@ -401,13 +401,16 @@ impl Aether {
 
                     match authenticate(link, peer_uid.clone(), request.identity_number, config) {
                         Ok(peer) => {
+                            trace!("got peer");
                             let mut connections_lock =
                                 connections_clone.lock().expect("unable to lock peer list");
 
+                            trace!("got connections lock");
                             // Add connected peer to connections list
                             // with connected state
                             (*connections_lock)
                                 .insert(peer_uid.clone(), Connection::Connected(Box::new(peer)));
+                            trace!("inserted connected");
                             success = true;
                         }
                         Err(AetherError::AuthenticationFailed(_)) => {
