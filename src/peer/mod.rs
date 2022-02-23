@@ -344,10 +344,8 @@ impl Aether {
         let private_id = self.private_id.clone();
 
         thread::spawn(move || loop {
-            trace!("getting lock");
             let mut req_lock = requests.lock().expect("Unable to lock requests queue");
 
-            trace!("checking requests");
             // For each request received
             if let Some(request) = (*req_lock).pop_front() {
                 trace!("some request");
