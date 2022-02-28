@@ -3,6 +3,7 @@ use std::time::Duration;
 use crate::identity::PublicId;
 use crate::peer::Peer;
 use crate::{error::AetherError, util::gen_nonce};
+use log::info;
 use rand::{thread_rng, Rng};
 
 use crate::{config::Config, link::Link};
@@ -55,7 +56,7 @@ pub fn authenticate(
 
     // if nonce received is same as nonce sent, the other peer is authenticated
     if nonce == nonce_recv {
-        println!("Authenticated");
+        info!("Authenticated: {}", peer_uid);
 
         // Create new Peer instance
         let peer = Peer {

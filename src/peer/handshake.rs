@@ -1,3 +1,4 @@
+use crate::error::AetherError;
 use crate::identity::Id;
 use crate::{acknowledgement::Acknowledgement, config::Config, packet::Packet};
 use crate::{link::Link, packet::PType};
@@ -16,15 +17,17 @@ pub fn handshake(
     my_uid: String,
     peer_uid: String,
     config: Config,
-) -> Result<Link, u8> {
+) -> Result<Link, AetherError> {
     let seq = thread_rng().gen_range(0..(1 << 16_u32)) as u32;
     let recv_seq: u32;
 
     let ack: bool;
 
-    socket
-        .set_read_timeout(Some(Duration::from_millis(config.handshake.peer_poll_time)))
-        .expect("Unable to set read timeout");
+    if let Err(_) =
+        socket.set_read_timeout(Some(Duration::from_millis(config.handshake.peer_poll_time)))
+    {
+        return Err(AetherError::SetReadTimeout);
+    }
 
     let mut packet = Packet::new(PType::Initiation, seq);
     packet.append_payload(my_uid.into_bytes());
@@ -34,10 +37,10 @@ pub fn handshake(
     let now = SystemTime::now();
     // Repeat sending start sequence number and ID
     loop {
-        let elapsed = now.elapsed().expect("Unable to get system time");
+        let elapsed = now.elapsed()?;
 
         if elapsed.as_millis() > config.handshake.handshake_timeout.into() {
-            return Err(255);
+            return Err(AetherError::HandshakeError);
         }
 
         loop {
@@ -55,8 +58,10 @@ pub fn handshake(
         if let Ok(size) = socket.recv(&mut buf) {
             if size > 0 {
                 let recved = Packet::from(buf[..size].to_vec());
-                let uid_recved =
-                    String::from_utf8(recved.payload.clone()).expect("Unable to get uid");
+                let uid_recved = match String::from_utf8(recved.payload.clone()) {
+                    Ok(string) => string,
+                    Err(_) => return Err(AetherError::HandshakeError),
+                };
 
                 // Verify the sender has the correct uid
                 if uid_recved == peer_uid {
@@ -83,10 +88,10 @@ pub fn handshake(
 
         // Repeat sending start sequence number, acknowledgement and ID
         loop {
-            let elapsed = now.elapsed().expect("Unable to get system time");
+            let elapsed = now.elapsed()?;
 
             if elapsed.as_millis() > config.handshake.handshake_timeout.into() {
-                return Err(254);
+                return Err(AetherError::HandshakeError);
             }
 
             loop {
@@ -104,8 +109,10 @@ pub fn handshake(
             if let Ok(size) = socket.recv(&mut buf) {
                 if size > 0 {
                     let recved = Packet::from(buf[..size].to_vec());
-                    let uid_recved =
-                        String::from_utf8(recved.payload.clone()).expect("Unable to get uid");
+                    let uid_recved = match String::from_utf8(recved.payload.clone()) {
+                        Ok(string) => string,
+                        Err(_) => return Err(AetherError::HandshakeError),
+                    };
 
                     // Verify the sender has the correct uid
                     if uid_recved == peer_uid
@@ -121,7 +128,7 @@ pub fn handshake(
     }
 
     // Start the link
-    let mut link = Link::new(private_id, socket, address, seq, recv_seq, config).unwrap();
+    let mut link = Link::new(private_id, socket, address, seq, recv_seq, config)?;
     link.start();
     Ok(link)
 }

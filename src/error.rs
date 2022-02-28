@@ -37,4 +37,6 @@ pub enum AetherError {
     FromUtf8Error(#[from] FromUtf8Error),
     #[error("Error decoding base64 string")]
     Base64DecodeError(#[from] base64::DecodeError),
+    #[error("Handshake couldn't complete")]
+    HandshakeError,
 }

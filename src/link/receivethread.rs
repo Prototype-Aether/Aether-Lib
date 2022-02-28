@@ -119,7 +119,6 @@ impl ReceiveThread {
 
     pub fn start(&mut self) {
         let mut buf = [0; 512];
-        //println!("Starting receive thread...");
         let mut now = SystemTime::now();
         loop {
             // If stop flag is set stop the thread
@@ -158,7 +157,6 @@ impl ReceiveThread {
                 }
             }
         }
-        //println!("Stopping receive thread...");
     }
 
     fn check_ack(&self, packet: &Packet) -> bool {
