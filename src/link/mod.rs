@@ -11,6 +11,10 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 use std::time::SystemTime;
 
+use crossbeam::channel::unbounded;
+use crossbeam::channel::Receiver;
+use crossbeam::channel::Sender;
+
 use crate::acknowledgement::{AcknowledgementCheck, AcknowledgementList};
 use crate::config::Config;
 use crate::error::AetherError;
@@ -43,7 +47,7 @@ pub struct Link {
     /// The address of the other peer
     peer_addr: SocketAddr,
     /// Queue of packets to be sent to the other peer
-    primary_queue: Arc<Mutex<VecDeque<Packet>>>,
+    primary_queue: (Sender<Packet>, Receiver<Packet>),
     /// Queue of packets received from the other peer
     output_queue: Arc<Mutex<VecDeque<Packet>>>,
     /// [`JoinHandle`] for threads created by [`Link`] module
@@ -86,7 +90,7 @@ impl Link {
             return Err(AetherError::SetReadTimeout);
         }
 
-        let primary_queue = Arc::new(Mutex::new(VecDeque::new()));
+        let primary_queue = unbounded();
         let output_queue = Arc::new(Mutex::new(VecDeque::new()));
 
         let stop_flag = Arc::new(Mutex::new(false));
@@ -115,7 +119,7 @@ impl Link {
         let mut send_thread_data = SendThread::new(
             self.socket.clone(),
             self.peer_addr,
-            self.primary_queue.clone(),
+            self.primary_queue.1.clone(),
             self.stop_flag.clone(),
             self.ack_check.clone(),
             self.ack_list.clone(),
@@ -199,16 +203,10 @@ impl Link {
                 let mut packet = Packet::new(PType::Data, seq);
                 packet.append_payload(buf);
 
-                // Lock the primary queue
-                match self.primary_queue.lock() {
-                    Ok(mut queue_lock) => {
-                        (*queue_lock).push_back(packet);
-                        Ok(())
-                    }
-                    Err(_) => Err(AetherError::MutexLock("primary queue")),
-                }
-
                 // Push the new packet onto the primary queue
+                self.primary_queue.0.send(packet)?;
+
+                Ok(())
             }
             Err(_) => Err(AetherError::MutexLock("send queue")),
         }

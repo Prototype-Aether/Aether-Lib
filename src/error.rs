@@ -5,6 +5,10 @@ use std::string::FromUtf8Error;
 use std::time::SystemTimeError;
 use thiserror::Error;
 
+use crossbeam::channel::SendError;
+
+use crate::packet::Packet;
+
 #[derive(Error, Debug)]
 pub enum AetherError {
     #[error("Current time is from future so cannot calculate elapsed time")]
@@ -39,4 +43,6 @@ pub enum AetherError {
     Base64DecodeError(#[from] base64::DecodeError),
     #[error("Handshake couldn't complete")]
     HandshakeError,
+    #[error("Error sending on channel")]
+    SendError(#[from] SendError<Packet>),
 }
