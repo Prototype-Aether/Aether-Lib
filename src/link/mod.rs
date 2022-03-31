@@ -178,6 +178,7 @@ impl Link {
         }
     }
 
+    /// Get the [`SocketAddr`] of the peer
     pub fn get_addr(&self) -> SocketAddr {
         self.peer_addr
     }
