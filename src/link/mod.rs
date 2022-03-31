@@ -275,6 +275,7 @@ impl Link {
         }
     }
 
+    /// Returns a [`Receiver`] to receive packets from the output queue
     pub fn get_receiver(&self) -> Result<Receiver<Packet>, AetherError> {
         match self.stop_flag.lock() {
             Ok(flag_lock) => {
