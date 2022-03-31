@@ -1,7 +1,6 @@
 pub mod receivethread;
 pub mod sendthread;
 
-use std::collections::VecDeque;
 use std::net::SocketAddr;
 use std::net::UdpSocket;
 use std::sync::Arc;
@@ -9,7 +8,6 @@ use std::sync::Mutex;
 use std::thread;
 use std::thread::JoinHandle;
 use std::time::Duration;
-use std::time::SystemTime;
 
 use crossbeam::channel::unbounded;
 use crossbeam::channel::Receiver;
@@ -49,7 +47,7 @@ pub struct Link {
     /// Queue of packets to be sent to the other peer
     primary_queue: (Sender<Packet>, Receiver<Packet>),
     /// Queue of packets received from the other peer
-    output_queue: Arc<Mutex<VecDeque<Packet>>>,
+    output_queue: (Sender<Packet>, Receiver<Packet>),
     /// [`JoinHandle`] for threads created by [`Link`] module
     thread_handles: Vec<JoinHandle<()>>,
     /// Sequence number for the next packet to be sent
@@ -91,7 +89,7 @@ impl Link {
         }
 
         let primary_queue = unbounded();
-        let output_queue = Arc::new(Mutex::new(VecDeque::new()));
+        let output_queue = unbounded();
 
         let stop_flag = Arc::new(Mutex::new(false));
         let batch_empty = Arc::new(Mutex::new(false));
@@ -138,7 +136,7 @@ impl Link {
         let mut recv_thread_data = ReceiveThread::new(
             self.socket.clone(),
             self.peer_addr,
-            self.output_queue.clone(),
+            self.output_queue.0.clone(),
             self.stop_flag.clone(),
             self.ack_check.clone(),
             self.ack_list.clone(),
@@ -235,44 +233,12 @@ impl Link {
                 let stop = *flag_lock;
                 drop(flag_lock);
 
-                let now = SystemTime::now();
-
                 if stop {
                     Err(AetherError::LinkStopped("recv timeout"))
                 } else {
                     // Pop the next packet from output queue
-                    loop {
-                        match now.elapsed() {
-                            Ok(elapsed) => {
-                                if elapsed > timeout {
-                                    break Err(AetherError::RecvTimeout);
-                                } else {
-                                    match self.output_queue.lock() {
-                                        Ok(mut queue_lock) => {
-                                            let result = queue_lock.pop_front();
-
-                                            drop(queue_lock);
-                                            // Get payload out of the packet and return
-                                            match result {
-                                                Some(packet) => break Ok(packet.payload),
-                                                None => {
-                                                    thread::sleep(Duration::from_micros(
-                                                        self.config.link.poll_time_us,
-                                                    ));
-                                                }
-                                            };
-                                        }
-                                        Err(_) => {
-                                            break Err(AetherError::MutexLock("output queue"));
-                                        }
-                                    }
-                                }
-                            }
-                            Err(err) => {
-                                break Err(AetherError::ElapsedTime(err));
-                            }
-                        }
-                    }
+                    let packet = self.output_queue.1.recv_timeout(timeout)?;
+                    Ok(packet.payload)
                 }
             }
             Err(_) => Err(AetherError::MutexLock("stop flag")),
@@ -293,67 +259,31 @@ impl Link {
                 let stop = *flag_lock;
                 drop(flag_lock);
 
-                let now = SystemTime::now();
-
                 if stop {
                     Err(AetherError::LinkStopped("recv"))
                 } else {
-                    // Pop the next packet from output queue
-                    loop {
-                        if let Some(time) = self.read_timeout {
-                            match now.elapsed() {
-                                Ok(elapsed) => {
-                                    if elapsed > time {
-                                        break Err(AetherError::LinkTimeout);
-                                    }
-                                }
-                                Err(err) => {
-                                    break Err(AetherError::ElapsedTime(err));
-                                }
-                            }
-                        }
+                    let packet = if let Some(time) = self.read_timeout {
+                        self.output_queue.1.recv_timeout(time)?
+                    } else {
+                        self.output_queue.1.recv()?
+                    };
 
-                        match self.output_queue.lock() {
-                            Ok(mut queue_lock) => {
-                                let result = queue_lock.pop_front();
-
-                                drop(queue_lock);
-
-                                // Get payload out of the packet and return
-                                match result {
-                                    Some(packet) => break Ok(packet.payload),
-                                    None => {
-                                        thread::sleep(Duration::from_micros(
-                                            self.config.link.poll_time_us,
-                                        ));
-                                    }
-                                };
-                            }
-                            Err(_) => {
-                                break Err(AetherError::MutexLock("output queue"));
-                            }
-                        }
-                    }
+                    Ok(packet.payload)
                 }
             }
             Err(_) => Err(AetherError::MutexLock("stop flag")),
         }
     }
     /// Returns true if no more packets needs to be sent
-    /// Checks if both output queue and batch queue are empty
+    /// Checks if both primary queue and batch queue are empty
     pub fn is_empty(&self) -> Result<bool, AetherError> {
-        match self.output_queue.lock() {
-            //should be primary queue ??
-            Ok(queue_lock) => {
-                let result = (*queue_lock).is_empty();
-                drop(queue_lock);
-
-                match self.batch_empty.lock() {
-                    Ok(batch_lock) => Ok(result && (*batch_lock)),
-                    Err(_) => Err(AetherError::MutexLock("batch empty flag")),
-                }
+        if self.primary_queue.0.is_empty() {
+            match self.batch_empty.lock() {
+                Ok(batch_lock) => Ok(*batch_lock),
+                Err(_) => Err(AetherError::MutexLock("batch empty flag")),
             }
-            Err(_) => Err(AetherError::MutexLock("output queue")),
+        } else {
+            Ok(false)
         }
     }
 

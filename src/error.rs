@@ -5,7 +5,7 @@ use std::string::FromUtf8Error;
 use std::time::SystemTimeError;
 use thiserror::Error;
 
-use crossbeam::channel::SendError;
+use crossbeam::channel::{RecvError, RecvTimeoutError, SendError};
 
 use crate::packet::Packet;
 
@@ -18,7 +18,7 @@ pub enum AetherError {
     #[error("Link module stopped")]
     LinkStopped(&'static str),
     #[error("Receive timed out")]
-    RecvTimeout,
+    RecvTimeout(#[from] RecvTimeoutError),
     #[error("Link timed out")]
     LinkTimeout,
     #[error("Failed to set read timeout on socket")]
@@ -44,5 +44,7 @@ pub enum AetherError {
     #[error("Handshake couldn't complete")]
     HandshakeError,
     #[error("Error sending on channel")]
-    SendError(#[from] SendError<Packet>),
+    ChannelSendError(#[from] SendError<Packet>),
+    #[error("Error receiving on channel")]
+    ChannelRecvError(#[from] RecvError),
 }

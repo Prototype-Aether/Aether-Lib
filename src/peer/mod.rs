@@ -168,7 +168,7 @@ impl Aether {
 
             match peer.link.recv_timeout(Duration::from_millis(1)) {
                 Ok(data) => return Ok(data),
-                Err(AetherError::RecvTimeout) => {}
+                Err(AetherError::RecvTimeout(_)) => {}
                 Err(err) => return Err(err),
             }
 

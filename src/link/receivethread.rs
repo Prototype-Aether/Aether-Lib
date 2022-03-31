@@ -8,6 +8,8 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::SystemTime;
 
+use crossbeam::channel::Sender;
+
 use crate::acknowledgement::{AcknowledgementCheck, AcknowledgementList};
 use crate::config::Config;
 use crate::link::needs_ack;
@@ -73,7 +75,7 @@ pub struct ReceiveThread {
     /// Address of the other peer
     _peer_addr: SocketAddr,
     /// Reference to the output queue from [`Link`]
-    output_queue: Arc<Mutex<VecDeque<Packet>>>,
+    output_queue: Sender<Packet>,
     /// Reference to the stop flag from [`Link`]
     stop_flag: Arc<Mutex<bool>>,
     /// Reference to the [`AcknowledgementList`] from [`Link`]
@@ -92,7 +94,7 @@ impl ReceiveThread {
     pub fn new(
         socket: Arc<UdpSocket>,
         peer_addr: SocketAddr,
-        output_queue: Arc<Mutex<VecDeque<Packet>>>,
+        output_queue: Sender<Packet>,
         stop_flag: Arc<Mutex<bool>>,
         ack_check: Arc<Mutex<AcknowledgementCheck>>,
         ack_list: Arc<Mutex<AcknowledgementList>>,
@@ -187,9 +189,9 @@ impl ReceiveThread {
         match self.order_list.insert(packet) {
             Ok(mut packets) => {
                 while let Some(p) = packets.pop_front() {
-                    let mut output_lock =
-                        self.output_queue.lock().expect("Cannot lock output queue");
-                    (*output_lock).push_back(p);
+                    self.output_queue
+                        .send(p)
+                        .expect("Unable to push to output queue");
                 }
             }
             Err(1) => (),
