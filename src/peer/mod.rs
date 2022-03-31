@@ -155,27 +155,23 @@ impl Aether {
     }
 
     pub fn recv_from(&self, uid: &str) -> Result<Vec<u8>, AetherError> {
-        loop {
-            let connections_lock = match self.connections.lock() {
-                Ok(lock) => lock,
-                Err(_) => return Err(AetherError::MutexLock("connections")),
-            };
+        let connections_lock = match self.connections.lock() {
+            Ok(lock) => lock,
+            Err(_) => return Err(AetherError::MutexLock("connections")),
+        };
 
-            let peer = match (*connections_lock).get(uid) {
-                Some(Connection::Connected(peer)) => peer,
-                _ => return Err(AetherError::NotConnected(uid.to_string())),
-            };
+        let peer = match (*connections_lock).get(uid) {
+            Some(Connection::Connected(peer)) => peer,
+            _ => return Err(AetherError::NotConnected(uid.to_string())),
+        };
 
-            match peer.link.recv_timeout(Duration::from_millis(1)) {
-                Ok(data) => return Ok(data),
-                Err(AetherError::RecvTimeout(_)) => {}
-                Err(err) => return Err(err),
-            }
+        let receiver = peer.link.get_receiver()?;
 
-            drop(connections_lock);
+        drop(connections_lock);
 
-            thread::sleep(Duration::from_millis(self.config.aether.poll_time_us));
-        }
+        let packet = receiver.recv()?;
+
+        Ok(packet.payload)
     }
 
     pub fn wait_connection(&self, uid: &str) -> Result<u8, u8> {

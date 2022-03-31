@@ -274,6 +274,23 @@ impl Link {
             Err(_) => Err(AetherError::MutexLock("stop flag")),
         }
     }
+
+    pub fn get_receiver(&self) -> Result<Receiver<Packet>, AetherError> {
+        match self.stop_flag.lock() {
+            Ok(flag_lock) => {
+                let stop = *flag_lock;
+                drop(flag_lock);
+
+                if stop {
+                    Err(AetherError::LinkStopped("recv"))
+                } else {
+                    Ok(self.output_queue.1.clone())
+                }
+            }
+            Err(_) => Err(AetherError::MutexLock("stop flag")),
+        }
+    }
+
     /// Returns true if no more packets needs to be sent
     /// Checks if both primary queue and batch queue are empty
     pub fn is_empty(&self) -> Result<bool, AetherError> {
