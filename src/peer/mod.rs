@@ -174,7 +174,7 @@ impl Aether {
 
             drop(connections_lock);
 
-            thread::sleep(Duration::from_millis(10));
+            thread::sleep(Duration::from_millis(self.config.aether.poll_time_us));
         }
     }
 

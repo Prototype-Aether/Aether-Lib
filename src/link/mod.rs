@@ -288,7 +288,7 @@ impl Link {
     }
 
     /// Waits and blocks the current thread until the [`Link`] is empty
-    pub fn wait(&self) -> Result<(), AetherError> {
+    pub fn wait_empty(&self) -> Result<(), AetherError> {
         loop {
             match self.is_empty() {
                 Ok(empty) => {
