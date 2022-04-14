@@ -8,6 +8,8 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::SystemTime;
 
+use crossbeam::channel::Sender;
+
 use crate::acknowledgement::{AcknowledgementCheck, AcknowledgementList};
 use crate::config::Config;
 use crate::link::needs_ack;
@@ -18,12 +20,12 @@ use crate::packet::Packet;
 pub struct OrderList {
     /// Last sequence number till which the packets are ordered.
     seq: u32,
-    /// [`Hashmap`] of packets by their sequence numbers
+    /// [`HashMap`] of packets by their sequence numbers
     list: HashMap<u32, Packet>,
 }
 
 impl OrderList {
-    /// Creates a new [`OrderList`] with the starting sequence number [`seq`].
+    /// Creates a new [`OrderList`] with the starting sequence number `seq`.
     pub fn new(seq: u32) -> OrderList {
         OrderList {
             seq,
@@ -72,17 +74,17 @@ pub struct ReceiveThread {
     socket: Arc<UdpSocket>,
     /// Address of the other peer
     _peer_addr: SocketAddr,
-    /// Reference to the output queue from [`Link`]
-    output_queue: Arc<Mutex<VecDeque<Packet>>>,
-    /// Reference to the stop flag from [`Link`]
+    /// Reference to the output queue from [`crate::link::Link`]
+    output_queue: Sender<Packet>,
+    /// Reference to the stop flag from [`crate::link::Link`]
     stop_flag: Arc<Mutex<bool>>,
-    /// Reference to the [`AcknowledgementList`] from [`Link`]
+    /// Reference to the [`AcknowledgementList`] from [`crate::link::Link`]
     ack_list: Arc<Mutex<AcknowledgementList>>,
-    /// Reference to the [`AcknowledgementCheck`] from [`Link`]
+    /// Reference to the [`AcknowledgementCheck`] from [`crate::link::Link`]
     ack_check: Arc<Mutex<AcknowledgementCheck>>,
     /// [`OrderList`] used to order received packets by their sequence number
     order_list: OrderList,
-    /// Reference to receive sequence from [`Link`]
+    /// Reference to receive sequence from [`crate::link::Link`]
     _recv_seq: Arc<Mutex<u32>>,
     /// Current configuration for Aether
     config: Config,
@@ -92,7 +94,7 @@ impl ReceiveThread {
     pub fn new(
         socket: Arc<UdpSocket>,
         peer_addr: SocketAddr,
-        output_queue: Arc<Mutex<VecDeque<Packet>>>,
+        output_queue: Sender<Packet>,
         stop_flag: Arc<Mutex<bool>>,
         ack_check: Arc<Mutex<AcknowledgementCheck>>,
         ack_list: Arc<Mutex<AcknowledgementList>>,
@@ -187,9 +189,9 @@ impl ReceiveThread {
         match self.order_list.insert(packet) {
             Ok(mut packets) => {
                 while let Some(p) = packets.pop_front() {
-                    let mut output_lock =
-                        self.output_queue.lock().expect("Cannot lock output queue");
-                    (*output_lock).push_back(p);
+                    self.output_queue
+                        .send(p)
+                        .expect("Unable to push to output queue");
                 }
             }
             Err(1) => (),

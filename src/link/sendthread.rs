@@ -7,6 +7,9 @@ use std::sync::Mutex;
 use std::thread;
 use std::time::Duration;
 
+use crossbeam::channel::Receiver;
+use crossbeam::channel::TryRecvError;
+
 use crate::acknowledgement::{AcknowledgementCheck, AcknowledgementList};
 use crate::config::Config;
 use crate::link::needs_ack;
@@ -18,7 +21,7 @@ pub struct SendThread {
     batch_queue: VecDeque<Packet>,
     socket: Arc<UdpSocket>,
     peer_addr: SocketAddr,
-    primary_queue: Arc<Mutex<VecDeque<Packet>>>,
+    primary_queue: Receiver<Packet>,
     stop_flag: Arc<Mutex<bool>>,
 
     is_empty: Arc<Mutex<bool>>,
@@ -35,7 +38,7 @@ impl SendThread {
     pub fn new(
         socket: Arc<UdpSocket>,
         peer_addr: SocketAddr,
-        primary_queue: Arc<Mutex<VecDeque<Packet>>>,
+        primary_queue: Receiver<Packet>,
         stop_flag: Arc<Mutex<bool>>,
         ack_check: Arc<Mutex<AcknowledgementCheck>>,
         ack_list: Arc<Mutex<AcknowledgementList>>,
@@ -152,13 +155,11 @@ impl SendThread {
     }
 
     pub fn fetch_window(&mut self) {
-        // Lock primary queue and dequeue the packet
-        let mut queue = self.primary_queue.lock().expect("Error locking queue");
-
         for _ in 0..self.config.link.window_size {
-            match (*queue).pop_front() {
-                Some(packet) => self.batch_queue.push_back(packet),
-                None => break,
+            match self.primary_queue.try_recv() {
+                Ok(packet) => self.batch_queue.push_back(packet),
+                Err(TryRecvError::Empty) => break,
+                Err(TryRecvError::Disconnected) => panic!("Primary queue disconnected"),
             }
         }
     }

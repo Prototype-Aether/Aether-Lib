@@ -34,7 +34,7 @@ mod tests {
         thread::spawn(|| {
             run("rm -rf tmp && mkdir -p tmp && cd tmp && git clone https://github.com/Prototype-Aether/Aether-Tracker.git", false);
             run(
-                "cd tmp/Aether-Tracker && cargo run --bin server 8000",
+                "cd tmp/Aether-Tracker && TRACKER_PORT=8000 cargo run --bin server",
                 false,
             )
         });
@@ -62,10 +62,7 @@ mod tests {
 
         let send_str1 = format!("Hello {}", aether2.get_uid());
         aether1
-            .send_to(
-                aether2.get_uid(),
-                send_str1.clone().into_bytes(),
-            )
+            .send_to(aether2.get_uid(), send_str1.clone().into_bytes())
             .expect("unable to send to peer");
 
         let result = aether2
@@ -77,10 +74,7 @@ mod tests {
 
         let send_str2 = format!("Hello {}", aether1.get_uid());
         aether2
-            .send_to(
-                aether1.get_uid(),
-                send_str2.clone().into_bytes(),
-            )
+            .send_to(aether1.get_uid(), send_str2.clone().into_bytes())
             .expect("unable to send to peer");
 
         let result = aether1

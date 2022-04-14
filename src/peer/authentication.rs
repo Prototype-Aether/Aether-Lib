@@ -34,7 +34,7 @@ pub fn authenticate(
     let nonce_enc = match link.recv_timeout(recv_timeout) {
         Ok(data) => data,
         Err(err) => match err {
-            AetherError::RecvTimeout => return Err(AetherError::AuthenticationFailed(peer_uid)),
+            AetherError::RecvTimeout(_) => return Err(AetherError::AuthenticationFailed(peer_uid)),
             other => return Err(other),
         },
     };
@@ -49,7 +49,7 @@ pub fn authenticate(
     let nonce_recv = match link.recv_timeout(recv_timeout) {
         Ok(data) => data,
         Err(err) => match err {
-            AetherError::RecvTimeout => return Err(AetherError::AuthenticationFailed(peer_uid)),
+            AetherError::RecvTimeout(_) => return Err(AetherError::AuthenticationFailed(peer_uid)),
             other => return Err(other),
         },
     };

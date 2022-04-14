@@ -109,7 +109,7 @@ mod tests {
                 link.send(x.clone()).unwrap();
             }
 
-            link.wait().unwrap();
+            link.wait_empty().unwrap();
             println!("Stopping sender");
 
             data
@@ -143,7 +143,7 @@ mod tests {
                 }
             }
 
-            link.wait().unwrap();
+            link.wait_empty().unwrap();
             println!("Stopping receiver");
             recv
         });
