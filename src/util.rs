@@ -37,7 +37,7 @@ pub fn compile_u16(nu16: u16) -> Vec<u8> {
     vec![(nu16 >> 8) as u8, nu16 as u8]
 }
 
-/// Generate a random nonce of the given size in bytes
+/// Generate a cryptographically secure random nonce of the given size in bytes
 ///
 /// # Arguments
 ///
@@ -50,8 +50,8 @@ pub fn compile_u16(nu16: u16) -> Vec<u8> {
 /// // to generate a 16 bytes nonce
 /// let nonce = gen_nonce(16);
 /// ```
-pub fn gen_nonce(size: u8) -> Vec<u8> {
-    let mut buf = vec![0u8; size as usize];
+pub fn gen_nonce(size: usize) -> Vec<u8> {
+    let mut buf = vec![0u8; size];
     OsRng.fill_bytes(&mut buf);
     buf
 }
