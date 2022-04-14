@@ -20,12 +20,12 @@ use crate::packet::Packet;
 pub struct OrderList {
     /// Last sequence number till which the packets are ordered.
     seq: u32,
-    /// [`Hashmap`] of packets by their sequence numbers
+    /// [`HashMap`] of packets by their sequence numbers
     list: HashMap<u32, Packet>,
 }
 
 impl OrderList {
-    /// Creates a new [`OrderList`] with the starting sequence number [`seq`].
+    /// Creates a new [`OrderList`] with the starting sequence number `seq`.
     pub fn new(seq: u32) -> OrderList {
         OrderList {
             seq,
@@ -74,17 +74,17 @@ pub struct ReceiveThread {
     socket: Arc<UdpSocket>,
     /// Address of the other peer
     _peer_addr: SocketAddr,
-    /// Reference to the output queue from [`Link`]
+    /// Reference to the output queue from [`crate::link::Link`]
     output_queue: Sender<Packet>,
-    /// Reference to the stop flag from [`Link`]
+    /// Reference to the stop flag from [`crate::link::Link`]
     stop_flag: Arc<Mutex<bool>>,
-    /// Reference to the [`AcknowledgementList`] from [`Link`]
+    /// Reference to the [`AcknowledgementList`] from [`crate::link::Link`]
     ack_list: Arc<Mutex<AcknowledgementList>>,
-    /// Reference to the [`AcknowledgementCheck`] from [`Link`]
+    /// Reference to the [`AcknowledgementCheck`] from [`crate::link::Link`]
     ack_check: Arc<Mutex<AcknowledgementCheck>>,
     /// [`OrderList`] used to order received packets by their sequence number
     order_list: OrderList,
-    /// Reference to receive sequence from [`Link`]
+    /// Reference to receive sequence from [`crate::link::Link`]
     _recv_seq: Arc<Mutex<u32>>,
     /// Current configuration for Aether
     config: Config,

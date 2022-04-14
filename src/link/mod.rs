@@ -224,7 +224,7 @@ impl Link {
     /// # Returns
     /// * [`Vec<u8>`] - Buffer containing the received bytes
     /// # Errors
-    /// * [`AetherError::ReadTimeout`] - Timeout reached before receiving any bytes
+    /// * [`AetherError::RecvTimeout`] - Timeout reached before receiving any bytes
     /// * [`AetherError::LinkStopped`] - [`Link`] stopped before receiving any bytes
     ///
     /// Other general errors might occur (refer to [`AetherError`])
