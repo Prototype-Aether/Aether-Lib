@@ -71,6 +71,7 @@ pub struct Id {
 /// identities
 /// Different from `Id` as it is meant to be used to store only public key. So, only used to
 /// represent identity of other users
+#[derive(Debug, Clone)]
 pub struct PublicId {
     /// RSA public key defining the user
     rsa: Rsa<Public>,

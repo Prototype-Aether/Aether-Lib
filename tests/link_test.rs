@@ -5,7 +5,7 @@ mod tests {
     use std::time::Duration;
 
     use aether_lib::config::Config;
-    use aether_lib::identity::Id;
+    use aether_lib::identity::{Id, PublicId};
     use aether_lib::link::Link;
     use aether_lib::peer::handshake::handshake;
     #[test]
@@ -19,11 +19,32 @@ mod tests {
         let id1 = Id::new().unwrap();
         let id2 = Id::new().unwrap();
 
+        let id1_public = PublicId::from_base64(&id1.public_key_to_base64().unwrap()).unwrap();
+        let id2_public = PublicId::from_base64(&id2.public_key_to_base64().unwrap()).unwrap();
+
         peer_addr1.set_ip(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)));
         peer_addr2.set_ip(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)));
 
-        let mut link1 = Link::new(id1, socket1, peer_addr2, 0, 1000, Config::default()).unwrap();
-        let mut link2 = Link::new(id2, socket2, peer_addr1, 1000, 0, Config::default()).unwrap();
+        let mut link1 = Link::new(
+            id1,
+            socket1,
+            peer_addr2,
+            id2_public,
+            0,
+            1000,
+            Config::default(),
+        )
+        .unwrap();
+        let mut link2 = Link::new(
+            id2,
+            socket2,
+            peer_addr1,
+            id1_public,
+            1000,
+            0,
+            Config::default(),
+        )
+        .unwrap();
 
         println!("{:?} {:?}", peer_addr1, peer_addr2);
 

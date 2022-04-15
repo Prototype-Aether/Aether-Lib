@@ -55,3 +55,7 @@ pub fn gen_nonce(size: usize) -> Vec<u8> {
     OsRng.fill_bytes(&mut buf);
     buf
 }
+
+pub fn xor(lhs: Vec<u8>, rhs: Vec<u8>) -> Vec<u8> {
+    lhs.iter().zip(rhs).map(|(x, y)| x ^ y).collect()
+}

@@ -1,5 +1,5 @@
 use crate::error::AetherError;
-use crate::identity::Id;
+use crate::identity::{Id, PublicId};
 use crate::{acknowledgement::Acknowledgement, config::Config, packet::Packet};
 use crate::{link::Link, packet::PType};
 use std::io::ErrorKind;
@@ -127,8 +127,10 @@ pub fn handshake(
         }
     }
 
+    let peer_id = PublicId::from_base64(&peer_uid)?;
+
     // Start the link
-    let mut link = Link::new(private_id, socket, address, seq, recv_seq, config)?;
+    let mut link = Link::new(private_id, socket, address, peer_id, seq, recv_seq, config)?;
     link.start();
     Ok(link)
 }

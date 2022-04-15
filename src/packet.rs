@@ -10,6 +10,7 @@ pub enum PType {
     Data,
     AckOnly,
     Initiation,
+    KeyExchange,
     Extended,
 }
 
@@ -19,6 +20,7 @@ impl From<PType> for u8 {
             PType::Data => 0,
             PType::AckOnly => 1,
             PType::Initiation => 2,
+            PType::KeyExchange => 7,
             PType::Extended => 15,
         }
     }
@@ -26,10 +28,11 @@ impl From<PType> for u8 {
 
 impl From<u8> for PType {
     fn from(p_type: u8) -> PType {
-        match Option::from(p_type) {
-            Some(0) => PType::Data,
-            Some(1) => PType::AckOnly,
-            Some(2) => PType::Initiation,
+        match p_type {
+            0 => PType::Data,
+            1 => PType::AckOnly,
+            2 => PType::Initiation,
+            7 => PType::KeyExchange,
             _ => PType::Extended,
         }
     }

@@ -15,17 +15,23 @@ use crossbeam::channel::Sender;
 
 use crate::acknowledgement::{AcknowledgementCheck, AcknowledgementList};
 use crate::config::Config;
+use crate::encryption::AetherCipher;
+use crate::encryption::KEY_SIZE;
 use crate::error::AetherError;
 use crate::identity::Id;
+use crate::identity::PublicId;
 use crate::link::receivethread::ReceiveThread;
 use crate::link::sendthread::SendThread;
 use crate::packet::PType;
 use crate::packet::Packet;
+use crate::util::gen_nonce;
+use crate::util::xor;
 
 /// Check if a given packet needs to be acknowledged based on the [`PType`]
 pub fn needs_ack(packet: &Packet) -> bool {
     match packet.flags.p_type {
         PType::Data => true,
+        PType::KeyExchange => true,
         PType::AckOnly => false,
         _ => false,
     }
@@ -36,6 +42,10 @@ pub fn needs_ack(packet: &Packet) -> bool {
 pub struct Link {
     /// Identity of the user that created this identity
     pub private_id: Id,
+    /// Public Identity of the other peer
+    pub peer_id: PublicId,
+    /// The symmetric cipher to be used for E2EE
+    cipher: Option<AetherCipher>,
     /// List of the acknowledgments that have to be sent to the other peer
     ack_list: Arc<Mutex<AcknowledgementList>>,
     /// List of the acknowledgments received from the other peer
@@ -70,6 +80,7 @@ impl Link {
     /// * `id` - [`Id`] of the user that is creating this link
     /// * `socket` - UDP socket used to communicate with the other peer
     /// * `peer_addr` - Address of the other peer
+    /// * `peer_id` - Public Id of the other peer
     /// * `send_seq` - Sending Sequence number that the Link needs to be initialised with
     /// * `recv_seq` - Receiving Sequence number that the Link needs to be initialised with
     /// * `config` - Configuration for Aether
@@ -77,6 +88,7 @@ impl Link {
         id: Id,
         socket: UdpSocket,
         peer_addr: SocketAddr,
+        peer_id: PublicId,
         send_seq: u32,
         recv_seq: u32,
         config: Config,
@@ -98,6 +110,8 @@ impl Link {
             ack_list: Arc::new(Mutex::new(AcknowledgementList::new(recv_seq))),
             ack_check: Arc::new(Mutex::new(AcknowledgementCheck::new(send_seq))),
             peer_addr,
+            peer_id,
+            cipher: None,
             socket,
             primary_queue,
             output_queue,
@@ -154,6 +168,34 @@ impl Link {
         self.thread_handles.push(recv_thread);
     }
 
+    pub fn enable_encryption(&self) -> Result<(), AetherError> {
+        // Generate a secret
+        let own_secret = gen_nonce(KEY_SIZE);
+
+        // Encrypt secret with other's public key
+        let encrypted_secret = self.peer_id.public_encrypt(&own_secret)?;
+        // Send encrypted secret
+        let mut packet = Packet::new(PType::KeyExchange, 0);
+        packet.append_payload(encrypted_secret);
+        self.send_packet(packet)?;
+
+        // Receive encrypted secret
+        let other_encrypted = self.recv()?;
+        // Decrypt received secret using own private key
+        let other_secret = self.private_id.private_decrypt(&other_encrypted)?;
+
+        // XOR received secret with own secret
+        let shared_secret = xor(own_secret, other_secret);
+
+        // Instantiate a new cipher with the shared secret
+
+        Ok(())
+    }
+
+    pub fn is_encrypted(&self) -> bool {
+        self.cipher.is_some()
+    }
+
     /// Stops the [`Link`] to the other peer
     pub fn stop(&mut self) -> Result<(), AetherError> {
         // Set the stop flag
@@ -187,6 +229,13 @@ impl Link {
     /// # Arguments
     /// * `buf` - Buffer containing the bytes to be sent
     pub fn send(&self, buf: Vec<u8>) -> Result<(), AetherError> {
+        // Create a new packet to be sent
+        let mut packet = Packet::new(PType::Data, 0);
+        packet.append_payload(buf);
+        self.send_packet(packet)
+    }
+
+    pub fn send_packet(&self, mut packet: Packet) -> Result<(), AetherError> {
         // Lock seq number
         match self.send_seq.lock() {
             Ok(mut seq_lock) => {
@@ -198,9 +247,8 @@ impl Link {
                 // Unlock seq
                 drop(seq_lock);
 
-                // Create a new packet to be sent
-                let mut packet = Packet::new(PType::Data, seq);
-                packet.append_payload(buf);
+                // set sequence number on packet
+                packet.sequence = seq;
 
                 // Push the new packet onto the primary queue
                 self.primary_queue.0.send(packet)?;

@@ -1,11 +1,13 @@
+use std::fmt::{Debug, Formatter};
+
 use openssl::symm::{decrypt_aead, encrypt_aead, Cipher};
 
 use crate::{error::AetherError, util::gen_nonce};
 
 const EMPTY_BYTES: [u8; 0] = [];
-const IV_SIZE: usize = 16;
-const KEY_SIZE: usize = 32;
-const TAG_SIZE: usize = 16;
+pub const IV_SIZE: usize = 16;
+pub const KEY_SIZE: usize = 32;
+pub const TAG_SIZE: usize = 16;
 
 pub struct AetherCipher {
     cipher: Cipher,
@@ -79,6 +81,16 @@ impl From<Vec<u8>> for Encrypted {
             iv: bytes.drain(0..IV_SIZE).collect(),
             crypto_text: bytes,
         }
+    }
+}
+
+impl Debug for AetherCipher {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AetherCipher")
+            .field("cipher", &"AES-256-GCM")
+            .field("key", &base64::encode(self.key.clone()))
+            .field("iv", &self.iv)
+            .finish()
     }
 }
 
