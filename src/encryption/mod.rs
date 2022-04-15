@@ -1,6 +1,9 @@
 use std::fmt::{Debug, Formatter};
 
-use openssl::symm::{decrypt_aead, encrypt_aead, Cipher};
+use openssl::{
+    sha::sha256,
+    symm::{decrypt_aead, encrypt_aead, Cipher},
+};
 
 use crate::{error::AetherError, util::gen_nonce};
 
@@ -11,8 +14,7 @@ pub const TAG_SIZE: usize = 16;
 
 pub struct AetherCipher {
     cipher: Cipher,
-    key: Vec<u8>,
-    iv: Vec<u8>,
+    key: [u8; 32],
 }
 
 pub struct Encrypted {
@@ -23,20 +25,20 @@ pub struct Encrypted {
 }
 
 impl AetherCipher {
-    pub fn new() -> AetherCipher {
+    pub fn new(shared_secret: Vec<u8>) -> AetherCipher {
         let cipher = Cipher::aes_256_gcm();
-        let key = gen_nonce(KEY_SIZE);
-        let iv = gen_nonce(IV_SIZE);
+        let key = sha256(&shared_secret);
 
-        AetherCipher { cipher, key, iv }
+        AetherCipher { cipher, key }
     }
 
     pub fn encrypt_bytes(&self, plain_text: Vec<u8>) -> Result<Encrypted, AetherError> {
         let mut tag = vec![0u8; TAG_SIZE];
+        let iv = gen_nonce(IV_SIZE);
         let encrypted = encrypt_aead(
             self.cipher,
             &self.key,
-            Some(&self.iv),
+            Some(&iv),
             &EMPTY_BYTES,
             &plain_text,
             &mut tag,
@@ -45,7 +47,7 @@ impl AetherCipher {
         Ok(Encrypted {
             crypto_text: encrypted,
             tag,
-            iv: self.iv.clone(),
+            iv,
             aad: EMPTY_BYTES.to_vec(),
         })
     }
@@ -89,14 +91,16 @@ impl Debug for AetherCipher {
         f.debug_struct("AetherCipher")
             .field("cipher", &"AES-256-GCM")
             .field("key", &base64::encode(self.key.clone()))
-            .field("iv", &self.iv)
             .finish()
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{encryption::Encrypted, util::gen_nonce};
+    use crate::{
+        encryption::{Encrypted, KEY_SIZE},
+        util::gen_nonce,
+    };
 
     use super::AetherCipher;
 
@@ -104,7 +108,7 @@ mod tests {
     fn encryption_test() {
         let data = gen_nonce(512);
 
-        let cipher = AetherCipher::new();
+        let cipher = AetherCipher::new(gen_nonce(KEY_SIZE));
 
         let encrypted = cipher.encrypt_bytes(data.clone()).unwrap();
 
@@ -117,7 +121,7 @@ mod tests {
     fn encoding_test() {
         let data = gen_nonce(512);
 
-        let cipher = AetherCipher::new();
+        let cipher = AetherCipher::new(gen_nonce(KEY_SIZE));
 
         let encrypted = cipher.encrypt_bytes(data.clone()).unwrap();
 

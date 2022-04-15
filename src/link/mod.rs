@@ -168,7 +168,7 @@ impl Link {
         self.thread_handles.push(recv_thread);
     }
 
-    pub fn enable_encryption(&self) -> Result<(), AetherError> {
+    pub fn enable_encryption(&mut self) -> Result<(), AetherError> {
         // Generate a secret
         let own_secret = gen_nonce(KEY_SIZE);
 
@@ -188,6 +188,11 @@ impl Link {
         let shared_secret = xor(own_secret, other_secret);
 
         // Instantiate a new cipher with the shared secret
+        let cipher = AetherCipher::new(shared_secret);
+
+        self.cipher = Some(cipher);
+
+        println!("{:?}", self.cipher);
 
         Ok(())
     }

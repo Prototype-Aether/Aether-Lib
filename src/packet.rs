@@ -54,7 +54,8 @@ pub struct PacketFlags {
 impl PacketFlags {
     pub fn get_byte(&self) -> u8 {
         let mut byte: u8 = 0;
-        byte |= (self.p_type.clone() as u8) << 4;
+        let p_type: u8 = self.p_type.clone().into();
+        byte |= p_type << 4;
         if self.ack {
             byte |= 1 << 3;
         }
@@ -111,6 +112,20 @@ impl Packet {
         }
     }
 
+    /// Set the packet encrypted flag
+    ///
+    /// # Argument
+    ///
+    /// * `enc` - Boolean representing if the packet is encrypted or not
+    pub fn set_enc(&mut self, enc: bool) {
+        self.flags.enc = enc;
+    }
+
+    /// Set the packet as a meta packet with the given meta data
+    ///
+    /// # Arguments
+    ///
+    /// * `meta` - The meta data to assign to this meta packet
     pub fn set_meta(&mut self, meta: PacketMeta) {
         self.is_meta = true;
         self.meta = meta;
@@ -125,7 +140,8 @@ impl Packet {
         self.ack = ack;
         self.flags.ack = true;
     }
-    ///Append payload Vec<u8> to the packet
+
+    /// Append payload Vec<u8> to the packet
     /// also assigns the length of the packet
     ///
     /// # Arguments
@@ -134,6 +150,7 @@ impl Packet {
     pub fn append_payload(&mut self, payload: Vec<u8>) {
         self.payload.extend(payload);
     }
+
     /// Compile the data in the packet into packet struct
     ///
     /// # Arguments
@@ -264,7 +281,7 @@ mod tests {
 
     #[test]
     fn compile_test() {
-        let mut pack = packet::Packet::new(PType::Data, 32850943);
+        let mut pack = packet::Packet::new(PType::KeyExchange, 32850943);
         let mut ack_list = AcknowledgementList::new(329965);
         ack_list.insert(329966);
         ack_list.insert(329967);

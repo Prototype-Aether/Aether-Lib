@@ -51,6 +51,18 @@ mod tests {
         link1.start();
         link2.start();
 
+        crossbeam::thread::scope(|s| {
+            let handle1 = s.spawn(|_| {
+                link1.enable_encryption().unwrap();
+            });
+            let handle2 = s.spawn(|_| {
+                link2.enable_encryption().unwrap();
+            });
+            handle1.join().unwrap();
+            handle2.join().unwrap();
+        })
+        .unwrap();
+
         let mut data: Vec<Vec<u8>> = Vec::new();
 
         for i in 1..100 {
