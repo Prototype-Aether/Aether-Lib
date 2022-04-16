@@ -23,8 +23,9 @@ pub fn handshake(
 
     let ack: bool;
 
-    if let Err(_) =
-        socket.set_read_timeout(Some(Duration::from_millis(config.handshake.peer_poll_time)))
+    if socket
+        .set_read_timeout(Some(Duration::from_millis(config.handshake.peer_poll_time)))
+        .is_err()
     {
         return Err(AetherError::SetReadTimeout);
     }

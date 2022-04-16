@@ -101,7 +101,10 @@ impl Link {
         let socket = Arc::new(socket);
 
         // if - let for errors
-        if let Err(_) = socket.set_read_timeout(Some(Duration::from_secs(1))) {
+        if socket
+            .set_read_timeout(Some(Duration::from_secs(1)))
+            .is_err()
+        {
             return Err(AetherError::SetReadTimeout);
         }
 

@@ -91,7 +91,7 @@ impl Debug for AetherCipher {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("AetherCipher")
             .field("cipher", &"AES-256-GCM")
-            .field("key", &base64::encode(self.key.clone()))
+            .field("key", &base64::encode(self.key))
             .finish()
     }
 }
