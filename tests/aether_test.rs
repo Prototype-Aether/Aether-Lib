@@ -2,12 +2,16 @@
 mod tests {
 
     use std::{
-        net::{IpAddr, Ipv4Addr, SocketAddr},
+        net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket},
         process::Command,
         thread,
     };
 
-    use aether_lib::{identity::Id, peer::Aether};
+    use aether_lib::{
+        config::Config,
+        identity::Id,
+        peer::{handshake::handshake, Aether},
+    };
 
     pub fn run(cmd: &str, show_output: bool) {
         let output = if show_output {
@@ -26,6 +30,103 @@ mod tests {
             String::from_utf8(output.stdout).unwrap(),
             String::from_utf8(output.stderr).unwrap()
         );
+    }
+
+    #[test]
+    pub fn handshake_test() {
+        let socket1 = UdpSocket::bind(("0.0.0.0", 0)).unwrap();
+        let socket2 = UdpSocket::bind(("0.0.0.0", 0)).unwrap();
+
+        let id1 = Id::new().unwrap();
+        let id2 = Id::new().unwrap();
+
+        let uid1 = id1.public_key_to_base64().unwrap();
+        let uid2 = id2.public_key_to_base64().unwrap();
+
+        let uid1_clone = uid1.clone();
+        let uid2_clone = uid2.clone();
+
+        let peer_addr1 = SocketAddr::new(
+            IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+            socket1.local_addr().unwrap().port(),
+        );
+        let peer_addr2 = SocketAddr::new(
+            IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+            socket2.local_addr().unwrap().port(),
+        );
+
+        println!("{:?} {:?}", peer_addr1, peer_addr2);
+
+        let len = 100;
+
+        let send_thread = thread::spawn(move || {
+            let link = handshake(
+                id1,
+                socket1,
+                peer_addr2,
+                uid1,
+                uid2_clone,
+                Config::default(),
+            )
+            .expect("Handshake failed");
+
+            let mut data: Vec<Vec<u8>> = Vec::new();
+
+            for i in 0..len {
+                data.push(format!("Hello {}", i).as_bytes().to_vec());
+            }
+
+            for x in &data {
+                link.send(x.clone()).unwrap();
+            }
+
+            link.wait_empty().unwrap();
+            println!("Stopping sender");
+
+            data
+        });
+
+        let recv_thread = thread::spawn(move || {
+            let link = handshake(
+                id2,
+                socket2,
+                peer_addr1,
+                uid2,
+                uid1_clone,
+                Config::default(),
+            )
+            .expect("Handshake failed");
+
+            let mut count = 0;
+            let mut recv: Vec<Vec<u8>> = Vec::new();
+            loop {
+                match link.recv() {
+                    Ok(recved_data) => {
+                        count += 1;
+                        recv.push(recved_data);
+                        if count >= len {
+                            break;
+                        }
+                    }
+                    Err(err) => {
+                        panic!("Error {}", err);
+                    }
+                }
+            }
+
+            link.wait_empty().unwrap();
+            println!("Stopping receiver");
+            recv
+        });
+
+        let data = send_thread.join().expect("Send thread panicked");
+        let recv = recv_thread.join().expect("Receive thread panicked");
+
+        for i in 0..recv.len() {
+            assert_eq!(recv[i], data[i]);
+        }
+
+        println!("Stopping");
     }
 
     #[test]

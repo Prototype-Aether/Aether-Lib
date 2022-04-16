@@ -75,7 +75,7 @@ pub struct ReceiveThread {
     /// Address of the other peer
     _peer_addr: SocketAddr,
     /// Reference to the output queue from [`crate::link::Link`]
-    output_queue: Sender<Packet>,
+    receive_queue: Sender<Packet>,
     /// Reference to the stop flag from [`crate::link::Link`]
     stop_flag: Arc<Mutex<bool>>,
     /// Reference to the [`AcknowledgementList`] from [`crate::link::Link`]
@@ -94,7 +94,7 @@ impl ReceiveThread {
     pub fn new(
         socket: Arc<UdpSocket>,
         peer_addr: SocketAddr,
-        output_queue: Sender<Packet>,
+        receive_queue: Sender<Packet>,
         stop_flag: Arc<Mutex<bool>>,
         ack_check: Arc<Mutex<AcknowledgementCheck>>,
         ack_list: Arc<Mutex<AcknowledgementList>>,
@@ -109,7 +109,7 @@ impl ReceiveThread {
         ReceiveThread {
             socket,
             _peer_addr: peer_addr,
-            output_queue,
+            receive_queue,
             stop_flag,
             ack_check,
             ack_list,
@@ -189,7 +189,7 @@ impl ReceiveThread {
         match self.order_list.insert(packet) {
             Ok(mut packets) => {
                 while let Some(p) = packets.pop_front() {
-                    self.output_queue
+                    self.receive_queue
                         .send(p)
                         .expect("Unable to push to output queue");
                 }

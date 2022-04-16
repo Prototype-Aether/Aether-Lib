@@ -1,3 +1,4 @@
+pub mod decryptionthread;
 pub mod receivethread;
 pub mod sendthread;
 
@@ -26,6 +27,8 @@ use crate::packet::PType;
 use crate::packet::Packet;
 use crate::util::gen_nonce;
 use crate::util::xor;
+
+use self::decryptionthread::DecryptionThread;
 
 /// Check if a given packet needs to be acknowledged based on the [`PType`]
 pub fn needs_ack(packet: &Packet) -> bool {
@@ -57,6 +60,8 @@ pub struct Link {
     /// Queue of packets to be sent to the other peer
     primary_queue: (Sender<Packet>, Receiver<Packet>),
     /// Queue of packets received from the other peer
+    receive_queue: (Sender<Packet>, Receiver<Packet>),
+    /// Queue of packets to be output
     output_queue: (Sender<Packet>, Receiver<Packet>),
     /// [`JoinHandle`] for threads created by [`Link`] module
     thread_handles: Vec<JoinHandle<()>>,
@@ -101,6 +106,7 @@ impl Link {
         }
 
         let primary_queue = unbounded();
+        let receive_queue = unbounded();
         let output_queue = unbounded();
 
         let stop_flag = Arc::new(Mutex::new(false));
@@ -114,6 +120,7 @@ impl Link {
             cipher: None,
             socket,
             primary_queue,
+            receive_queue,
             output_queue,
             send_seq: Arc::new(Mutex::new(send_seq)),
             recv_seq: Arc::new(Mutex::new(recv_seq)),
@@ -150,7 +157,7 @@ impl Link {
         let mut recv_thread_data = ReceiveThread::new(
             self.socket.clone(),
             self.peer_addr,
-            self.output_queue.0.clone(),
+            self.receive_queue.0.clone(),
             self.stop_flag.clone(),
             self.ack_check.clone(),
             self.ack_list.clone(),
@@ -189,10 +196,21 @@ impl Link {
 
         // Instantiate a new cipher with the shared secret
         let cipher = AetherCipher::new(shared_secret);
+        let decryption_thread_data = DecryptionThread::new(
+            cipher.clone(),
+            self.receive_queue.1.clone(),
+            self.output_queue.0.clone(),
+            self.stop_flag.clone(),
+            self.config,
+        );
+
+        let decryption_thread = thread::spawn(move || {
+            decryption_thread_data.start().unwrap();
+        });
+
+        self.thread_handles.push(decryption_thread);
 
         self.cipher = Some(cipher);
-
-        println!("{:?}", self.cipher);
 
         Ok(())
     }
@@ -236,10 +254,25 @@ impl Link {
     pub fn send(&self, buf: Vec<u8>) -> Result<(), AetherError> {
         // Create a new packet to be sent
         let mut packet = Packet::new(PType::Data, 0);
-        packet.append_payload(buf);
+        // if a cipher is present, encrypt the payload
+        let data: Vec<u8> = match self.cipher {
+            Some(ref cipher) => {
+                packet.set_enc(true);
+                cipher.encrypt_bytes(buf)?.into()
+            }
+            None => buf,
+        };
+        packet.append_payload(data);
         self.send_packet(packet)
     }
 
+    /// Send a `packet` to the other peer
+    /// > This alter's the `packet.sequence` number of the `packet` argument. Rest
+    /// of the packet is sent as it is
+    ///
+    /// # Arguments
+    ///
+    /// * `packet` - The [`Packet`] to be sent
     pub fn send_packet(&self, mut packet: Packet) -> Result<(), AetherError> {
         // Lock seq number
         match self.send_seq.lock() {
@@ -282,21 +315,9 @@ impl Link {
     ///
     /// Other general errors might occur (refer to [`AetherError`])
     pub fn recv_timeout(&self, timeout: Duration) -> Result<Vec<u8>, AetherError> {
-        match self.stop_flag.lock() {
-            Ok(flag_lock) => {
-                let stop = *flag_lock;
-                drop(flag_lock);
-
-                if stop {
-                    Err(AetherError::LinkStopped("recv timeout"))
-                } else {
-                    // Pop the next packet from output queue
-                    let packet = self.output_queue.1.recv_timeout(timeout)?;
-                    Ok(packet.payload)
-                }
-            }
-            Err(_) => Err(AetherError::MutexLock("stop flag")),
-        }
+        let receiver = self.get_receiver()?;
+        let packet = receiver.recv_timeout(timeout)?;
+        Ok(packet.payload)
     }
 
     /// Receive bytes from the other peer
@@ -308,25 +329,14 @@ impl Link {
     ///
     /// Other general errors might occur (refer to [`AetherError`])
     pub fn recv(&self) -> Result<Vec<u8>, AetherError> {
-        match self.stop_flag.lock() {
-            Ok(flag_lock) => {
-                let stop = *flag_lock;
-                drop(flag_lock);
+        let receiver = self.get_receiver()?;
+        let packet = if let Some(time) = self.read_timeout {
+            receiver.recv_timeout(time)?
+        } else {
+            receiver.recv()?
+        };
 
-                if stop {
-                    Err(AetherError::LinkStopped("recv"))
-                } else {
-                    let packet = if let Some(time) = self.read_timeout {
-                        self.output_queue.1.recv_timeout(time)?
-                    } else {
-                        self.output_queue.1.recv()?
-                    };
-
-                    Ok(packet.payload)
-                }
-            }
-            Err(_) => Err(AetherError::MutexLock("stop flag")),
-        }
+        Ok(packet.payload)
     }
 
     /// Returns a [`Receiver`] to receive packets from the output queue
@@ -337,9 +347,15 @@ impl Link {
                 drop(flag_lock);
 
                 if stop {
-                    Err(AetherError::LinkStopped("recv"))
+                    Err(AetherError::LinkStopped("get receiver"))
                 } else {
-                    Ok(self.output_queue.1.clone())
+                    // if encrypted receive from output queue
+                    if self.is_encrypted() {
+                        Ok(self.output_queue.1.clone())
+                    } else {
+                        // if not encrypted receive directly from receive queue
+                        Ok(self.receive_queue.1.clone())
+                    }
                 }
             }
             Err(_) => Err(AetherError::MutexLock("stop flag")),

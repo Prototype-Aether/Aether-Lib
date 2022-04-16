@@ -12,9 +12,10 @@ pub const IV_SIZE: usize = 16;
 pub const KEY_SIZE: usize = 32;
 pub const TAG_SIZE: usize = 16;
 
+#[derive(Clone)]
 pub struct AetherCipher {
     cipher: Cipher,
-    key: [u8; 32],
+    key: [u8; KEY_SIZE],
 }
 
 pub struct Encrypted {
