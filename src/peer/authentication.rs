@@ -9,7 +9,7 @@ use rand::{thread_rng, Rng};
 use crate::{config::Config, link::Link};
 
 /// Size of the nonce to be used in authentication in bytes
-pub const NONCE_SIZE: u8 = 32;
+pub const NONCE_SIZE: usize = 32;
 
 pub fn authenticate(
     link: Link,

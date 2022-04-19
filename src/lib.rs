@@ -2,6 +2,7 @@
 
 pub mod acknowledgement;
 pub mod config;
+pub mod encryption;
 pub mod error;
 pub mod identity;
 pub mod link;

@@ -396,15 +396,21 @@ impl Aether {
                     trace!("Handshake success");
 
                     match authenticate(link, peer_uid.clone(), request.identity_number, config) {
-                        Ok(peer) => {
-                            let mut connections_lock =
-                                connections_clone.lock().expect("unable to lock peer list");
+                        Ok(mut peer) => {
+                            if let Err(err) = peer.link.enable_encryption() {
+                                error!("Cannot enable encryption: {}", err);
+                            } else {
+                                let mut connections_lock =
+                                    connections_clone.lock().expect("unable to lock peer list");
 
-                            // Add connected peer to connections list
-                            // with connected state
-                            (*connections_lock)
-                                .insert(peer_uid.clone(), Connection::Connected(Box::new(peer)));
-                            success = true;
+                                // Add connected peer to connections list
+                                // with connected state
+                                (*connections_lock).insert(
+                                    peer_uid.clone(),
+                                    Connection::Connected(Box::new(peer)),
+                                );
+                                success = true;
+                            }
                         }
                         Err(AetherError::AuthenticationFailed(_)) => {
                             trace!("Cannot reach");
