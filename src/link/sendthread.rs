@@ -78,7 +78,7 @@ impl SendThread {
                             thread::sleep(Duration::from_millis(packet.meta.delay_ms));
                         }
 
-                        // only increase delays if batch queue still has packets to send
+                        // only increase retries if batch queue still has packets to send
                         if !self.batch_queue.is_empty() {
                             // Increase retry count since after this same packets
                             // will be sent again
@@ -109,7 +109,7 @@ impl SendThread {
                     self.fetch_window();
                     let mut empty_lock = self.is_empty.lock().expect("Unable to lock empty bool");
 
-                    let mut retry_delay = 0;
+                    let mut retry_delay = self.config.link.retry_delay;
                     // If still empty
                     if self.batch_queue.is_empty() {
                         (*empty_lock) = true;

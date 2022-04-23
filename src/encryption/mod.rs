@@ -19,7 +19,7 @@ pub struct AetherCipher {
 }
 
 pub struct Encrypted {
-    pub crypto_text: Vec<u8>,
+    pub cipher_text: Vec<u8>,
     pub tag: Vec<u8>,
     pub iv: Vec<u8>,
     pub aad: Vec<u8>,
@@ -46,21 +46,21 @@ impl AetherCipher {
         )?;
 
         Ok(Encrypted {
-            crypto_text: encrypted,
+            cipher_text: encrypted,
             tag,
             iv,
             aad: EMPTY_BYTES.to_vec(),
         })
     }
 
-    pub fn decrypt_bytes(&self, crypto_text: Encrypted) -> Result<Vec<u8>, AetherError> {
+    pub fn decrypt_bytes(&self, cipher_text: Encrypted) -> Result<Vec<u8>, AetherError> {
         Ok(decrypt_aead(
             self.cipher,
             &self.key,
-            Some(&crypto_text.iv),
-            &crypto_text.aad,
-            &crypto_text.crypto_text,
-            &crypto_text.tag,
+            Some(&cipher_text.iv),
+            &cipher_text.aad,
+            &cipher_text.cipher_text,
+            &cipher_text.tag,
         )?)
     }
 }
@@ -71,7 +71,7 @@ impl From<Encrypted> for Vec<u8> {
         result.append(&mut encrypted.aad);
         result.append(&mut encrypted.tag);
         result.append(&mut encrypted.iv);
-        result.append(&mut encrypted.crypto_text);
+        result.append(&mut encrypted.cipher_text);
         result
     }
 }
@@ -82,7 +82,7 @@ impl From<Vec<u8>> for Encrypted {
             aad: EMPTY_BYTES.to_vec(),
             tag: bytes.drain(0..TAG_SIZE).collect(),
             iv: bytes.drain(0..IV_SIZE).collect(),
-            crypto_text: bytes,
+            cipher_text: bytes,
         }
     }
 }
