@@ -11,6 +11,8 @@ It can be used directly as a Rust library to develop applications. However, the
 [Aether Service](https://github.com/Prototype-Aether/Aether-Service) which is currently
 under development is recommended way to interact with Aether.
 
+The documentation for Aether Lib can be found [here](https://prototype-aether.github.io/Aether-Lib/aether_lib/)
+
 # Installation
 
 Add `aether_lib` to your project in `Cargo.toml` as
