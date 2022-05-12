@@ -1,3 +1,5 @@
+//! Structure for representing an [`Aether`] client.
+
 pub mod authentication;
 pub mod handshake;
 

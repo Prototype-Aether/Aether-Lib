@@ -1,3 +1,5 @@
+//! General purpose utilities used by [`aether_lib`](crate) often.
+
 use rand::{rngs::OsRng, RngCore};
 
 /// Compile a 32-bit value into vector of bytes

@@ -1,3 +1,5 @@
+//! Structure for representing a reliable [`Link`] between 2 peers.
+
 pub mod decryptionthread;
 pub mod receivethread;
 pub mod sendthread;

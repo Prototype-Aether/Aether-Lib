@@ -1,3 +1,6 @@
+//! Primitives for symmetric encryption for Aether.
+//! Makes use of AES-256-GCM cipher. Implementation built on top of OpenSSL.
+
 use std::fmt::{Debug, Formatter};
 
 use openssl::{

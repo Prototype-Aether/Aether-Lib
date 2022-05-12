@@ -1,3 +1,5 @@
+//! Primitives for representing a unit of packet in Aether.
+
 use crate::acknowledgement::Acknowledgement;
 use crate::util::compile_u32;
 

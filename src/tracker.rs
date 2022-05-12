@@ -1,3 +1,5 @@
+//! Primitives for representing packets used to communicate with the tracker server
+
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 
