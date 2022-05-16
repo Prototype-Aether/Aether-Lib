@@ -198,6 +198,10 @@ impl Packet {
         // currently the packet_vector is a vector of u8 but we have to convert into string and then into bytes
         packet_vector
     }
+
+    pub fn get_max_header_size(window_size: u16) -> usize {
+        (13 + window_size * 2) as usize
+    }
 }
 impl From<u8> for PacketFlags {
     fn from(byte: u8) -> Self {
