@@ -120,7 +120,7 @@ impl ReceiveThread {
     }
 
     pub fn start(&mut self) {
-        let mut buf = [0; 512];
+        let mut buf = [0; 2048];
         let mut now = SystemTime::now();
         loop {
             // If stop flag is set stop the thread
