@@ -67,7 +67,7 @@ pub struct HandshakeConfig {
 #[serde(default)]
 pub struct LinkConfig {
     /// Window size for the link. Determines how many packets are sent in a single burst
-    pub window_size: u8,
+    pub window_size: u16,
     /// Time to wait for acknowledgement to be received
     pub ack_wait_time: u64,
     /// Poll time for shared memory structures
@@ -198,7 +198,7 @@ impl Default for LinkConfig {
             poll_time_us: 100,
             timeout: 10_000,
             retry_delay: 100,
-            ack_only_time: 100,
+            ack_only_time: 50,
             max_retries: 10,
         }
     }
