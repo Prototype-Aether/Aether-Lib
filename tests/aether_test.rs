@@ -131,6 +131,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     pub fn aether_test() {
         // Run the tracker server
         thread::spawn(|| {

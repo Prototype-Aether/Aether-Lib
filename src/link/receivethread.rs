@@ -120,8 +120,8 @@ impl ReceiveThread {
     }
 
     pub fn start(&mut self) {
-        let mut buf =
-            Vec::with_capacity(Packet::get_max_header_size(self.config.link.window_size) + 2048);
+        let buf_size = Packet::get_max_header_size(self.config.link.window_size) + 2048;
+        let mut buf: Vec<u8> = vec![0; buf_size];
         let mut now = SystemTime::now();
         loop {
             // If stop flag is set stop the thread

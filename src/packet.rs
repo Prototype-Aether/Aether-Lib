@@ -203,6 +203,7 @@ impl Packet {
         (13 + window_size * 2) as usize
     }
 }
+
 impl From<u8> for PacketFlags {
     fn from(byte: u8) -> Self {
         let mut flags = PacketFlags {
@@ -293,6 +294,8 @@ mod tests {
     use crate::packet::PType;
     use crate::{acknowledgement::AcknowledgementList, packet};
 
+    use super::Packet;
+
     #[test]
     fn range_test() {
         let pack = packet::Packet::new(PType::Data, 0);
@@ -327,5 +330,14 @@ mod tests {
         assert_eq!(pack.ack.miss, pack_out.ack.miss);
 
         assert_eq!(pack.payload, pack_out.payload);
+    }
+
+    #[test]
+    fn size_test() {
+        let size = Packet::get_max_header_size(10000);
+
+        println!("size: {}", size);
+
+        assert_eq!(size, 20013);
     }
 }
