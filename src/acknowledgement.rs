@@ -12,15 +12,15 @@ pub struct Acknowledgement {
     /// the last packet to be acknowledged relative to the `ack_begin`
     /// > Note: If the sequence number of a packet is `ack`, the relative sequence
     ///   number to `ack_begin` would be `ack - ack_begin`.
-    pub ack_end: u8,
+    pub ack_end: u16,
 
     /// Number of packets from `ack_begin` till `ack_begin + ack_end` that are
     /// not acknowledged
-    pub miss_count: u8,
+    pub miss_count: u16,
 
     /// Vector of ack numbers (relative to `ack_begin`) which are missing.
     /// Length of the vector is `miss_count`.
-    pub miss: Vec<u8>,
+    pub miss: Vec<u16>,
 }
 
 impl Clone for Acknowledgement {
@@ -34,7 +34,7 @@ impl Clone for Acknowledgement {
     }
 }
 
-pub const MAX_WINDOW: u8 = 127;
+pub const MAX_WINDOW: u16 = 65000;
 
 /// A checklist to store all Acknowledgements received.
 /// * Used by sending module to test if a packet has already been acknowledged
@@ -88,7 +88,7 @@ impl AcknowledgementCheck {
             }
         }
 
-        let mut missing: HashMap<u8, bool> = HashMap::new();
+        let mut missing: HashMap<u16, bool> = HashMap::new();
 
         for i in ack.miss {
             missing.insert(i, true);
@@ -150,7 +150,7 @@ pub struct AcknowledgementList {
     /// Acknowledgement.
     /// > Note: If the sequence number of a packet is `ack`, the relative sequence
     /// number to `ack_begin` would be `ack - ack_begin`.
-    ack_end: u8,
+    ack_end: u16,
 }
 
 impl AcknowledgementList {
@@ -198,7 +198,7 @@ impl AcknowledgementList {
         if ack > (MAX_WINDOW as u32 + self.ack_begin) {
             panic!("ack too large {}\t Diff: {}", ack, ack - self.ack_begin);
         } else if ack > self.ack_begin {
-            let n = (ack - self.ack_begin) as u8;
+            let n = (ack - self.ack_begin) as u16;
 
             if n > self.ack_end {
                 self.ack_end = n;
@@ -223,7 +223,7 @@ impl AcknowledgementList {
     /// Get an [`Acknowledgement`] structure out of this [`AcknowledgementList`]
     /// * Used to add the Acknowledgement to the next outgoing packet
     pub fn get(&self) -> Acknowledgement {
-        let mut miss: Vec<u8> = Vec::new();
+        let mut miss: Vec<u16> = Vec::new();
 
         for i in 1..(self.ack_end + 1) {
             match self.list.get(&(i as u32 + self.ack_begin)) {
@@ -236,7 +236,7 @@ impl AcknowledgementList {
         Acknowledgement {
             ack_begin: self.ack_begin,
             ack_end: self.ack_end,
-            miss_count: miss.len() as u8,
+            miss_count: miss.len() as u16,
             miss,
         }
     }

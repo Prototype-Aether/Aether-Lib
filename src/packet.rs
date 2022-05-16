@@ -1,6 +1,7 @@
 //! Primitives for representing a unit of packet in Aether.
 
 use crate::acknowledgement::Acknowledgement;
+use crate::util::compile_u16;
 use crate::util::compile_u32;
 
 use std::convert::From;
@@ -174,13 +175,21 @@ impl Packet {
         let slice_ack_begin = compile_u32(self.ack.ack_begin);
         packet_vector.extend(slice_ack_begin);
 
-        packet_vector.push(self.ack.ack_end);
+        let slice_ack_end = compile_u16(self.ack.ack_end);
+        packet_vector.extend(slice_ack_end);
 
         packet_vector.push(self.flags.get_byte());
 
-        packet_vector.push(self.ack.miss_count);
+        let slice_miss_count = compile_u16(self.ack.miss_count);
+        packet_vector.extend(slice_miss_count);
 
-        let slice_miss = self.ack.miss.clone();
+        let mut slice_miss: Vec<u8> = Vec::new();
+        self.ack
+            .miss
+            .clone()
+            .into_iter()
+            .map(|miss| compile_u16(miss))
+            .for_each(|slice_part| slice_miss.extend(slice_part));
         packet_vector.extend(slice_miss);
 
         let slice_payload = self.payload.clone();
@@ -189,7 +198,12 @@ impl Packet {
         // currently the packet_vector is a vector of u8 but we have to convert into string and then into bytes
         packet_vector
     }
+
+    pub fn get_max_header_size(window_size: u16) -> usize {
+        (13 + window_size * 2) as usize
+    }
 }
+
 impl From<u8> for PacketFlags {
     fn from(byte: u8) -> Self {
         let mut flags = PacketFlags {
@@ -246,15 +260,21 @@ impl From<Vec<u8>> for Packet {
         let ack_begin_array = bytes[4..8].try_into().unwrap();
         packet_default.ack.ack_begin = u32::from_be_bytes(ack_begin_array);
 
-        packet_default.ack.ack_end = bytes[8];
+        let ack_end_array = bytes[8..10].try_into().unwrap();
+        packet_default.ack.ack_end = u16::from_be_bytes(ack_end_array);
 
-        packet_default.flags = PacketFlags::from(bytes[9]);
+        packet_default.flags = PacketFlags::from(bytes[10]);
 
-        packet_default.ack.miss_count = bytes[10];
+        let miss_count_array = bytes[11..13].try_into().unwrap();
+        packet_default.ack.miss_count = u16::from_be_bytes(miss_count_array);
 
-        packet_default.ack.miss = bytes[11..11 + packet_default.ack.miss_count as usize].to_vec();
+        packet_default.ack.miss = (13..(13 + packet_default.ack.miss_count * 2) as usize)
+            .step_by(2)
+            .into_iter()
+            .map(|i| u16::from_be_bytes(bytes[i..(i + 2)].try_into().unwrap()))
+            .collect();
 
-        let payload_start = 11 + packet_default.ack.miss_count as usize;
+        let payload_start = 13 + (packet_default.ack.miss_count * 2) as usize;
         let payload_length = bytes.len() - payload_start;
         // Packet Length converting u8 to u16(vector)
         // let length_array = bytes[11 + packet_default.ack.miss_count as usize
@@ -274,6 +294,8 @@ mod tests {
     use crate::packet::PType;
     use crate::{acknowledgement::AcknowledgementList, packet};
 
+    use super::Packet;
+
     #[test]
     fn range_test() {
         let pack = packet::Packet::new(PType::Data, 0);
@@ -288,7 +310,7 @@ mod tests {
         ack_list.insert(329966);
         ack_list.insert(329967);
         ack_list.insert(329969);
-        ack_list.insert(329970);
+        ack_list.insert(331000);
 
         pack.add_ack(ack_list.get());
         pack.append_payload(vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
@@ -308,5 +330,14 @@ mod tests {
         assert_eq!(pack.ack.miss, pack_out.ack.miss);
 
         assert_eq!(pack.payload, pack_out.payload);
+    }
+
+    #[test]
+    fn size_test() {
+        let size = Packet::get_max_header_size(10000);
+
+        println!("size: {}", size);
+
+        assert_eq!(size, 20013);
     }
 }
