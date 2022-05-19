@@ -17,7 +17,7 @@ serde_yaml = "0.8"
 home = "0.5"
 log = "0.4"
 thiserror = "1.0"
-openssl = "0.10"
+openssl = { version = "0.10", features = ["vendored"] }
 base64 = "0.13"
 crossbeam = "0.8"
 
