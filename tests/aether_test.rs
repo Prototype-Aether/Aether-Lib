@@ -131,15 +131,13 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     pub fn aether_test() {
         // Run the tracker server
         thread::spawn(|| {
-            run("rm -rf tmp && mkdir -p tmp && cd tmp && git clone https://github.com/Prototype-Aether/Aether-Tracker.git", false);
-            run(
-                "cd tmp/Aether-Tracker && TRACKER_PORT=8000 cargo run --bin server",
-                false,
-            )
+            run("mkdir -p tmp", false);
+            run("curl -L https://github.com/Prototype-Aether/Aether-Tracker/releases/latest/download/aether-tracker-server-x86_64-unknown-linux-gnu --output tmp/aether-tracker-server", false);
+            run("chmod +x tmp/aether-tracker-server", false);
+            run("TRACKER_PORT=8000 tmp/aether-tracker-server", false);
         });
 
         let tracker_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8000);
@@ -195,11 +193,10 @@ mod tests {
     pub fn aether_long_test() {
         // Run the tracker server
         thread::spawn(|| {
-            run("rm -rf tmp && mkdir -p tmp && cd tmp && git clone https://github.com/Prototype-Aether/Aether-Tracker.git", false);
-            run(
-                "cd tmp/Aether-Tracker && TRACKER_PORT=8000 cargo run --bin server",
-                false,
-            )
+            run("mkdir -p tmp", false);
+            run("curl -L https://github.com/Prototype-Aether/Aether-Tracker/releases/latest/download/aether-tracker-server-x86_64-unknown-linux-gnu --output tmp/aether-tracker-server", false);
+            run("chmod +x tmp/aether-tracker-server", false);
+            run("TRACKER_PORT=8000 tmp/aether-tracker-server", false);
         });
 
         let tracker_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8000);
