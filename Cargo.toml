@@ -2,6 +2,21 @@
 name = "aether_lib"
 version = "0.1.0"
 edition = "2018"
+rust-version = "1.60"
+authors = [ "Anish Sharma <aneeshsharma15@outlook.com>",
+            "Arjun Syam <arjun.syam23@gmail.com>",
+            "Dev Sony <devsony52@gmail.com>"]
+license = "GPL-3.0"
+readme = "README.md"
+repository = "https://github.com/Prototype-Aether/Aether-Lib"
+homepage = "https://github.com/Prototype-Aether/Aether-Lib"
+description = """
+A library that provides P2P communication for Prototype Aether. Contains the
+implementations of the Aether Protocol. This library can be used to develop P2P
+applications.
+"""
+caregories = ["network-programming"]
+keywords = ["p2p", "communication", "general-purpose", "udp", "udp-holepunching"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
