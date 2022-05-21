@@ -9,7 +9,7 @@ mod tests {
     use aether_lib::link::Link;
 
     #[test]
-    pub fn link_test() {
+    fn link_test() {
         let socket1 = UdpSocket::bind(("0.0.0.0", 0)).unwrap();
         let socket2 = UdpSocket::bind(("0.0.0.0", 0)).unwrap();
 
@@ -83,7 +83,7 @@ mod tests {
     }
 
     #[test]
-    pub fn encrypted_link_test() {
+    fn encrypted_link_test() {
         let socket1 = UdpSocket::bind(("0.0.0.0", 0)).unwrap();
         let socket2 = UdpSocket::bind(("0.0.0.0", 0)).unwrap();
 
