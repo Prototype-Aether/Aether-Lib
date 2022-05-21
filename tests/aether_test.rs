@@ -1,3 +1,5 @@
+mod common;
+
 #[cfg(test)]
 mod tests {
 
@@ -10,9 +12,10 @@ mod tests {
         config::Config,
         identity::Id,
         peer::{handshake::handshake, Aether},
-        tracker_setup::tracker_setup,
         util::gen_nonce,
     };
+
+    use crate::common::tracker_setup;
 
     #[test]
     pub fn handshake_test() {
@@ -111,10 +114,7 @@ mod tests {
         println!("Stopping");
     }
 
-    #[test]
-    pub fn aether_test() {
-        tracker_setup();
-
+    pub fn init_linked_aether() -> (Aether, Aether) {
         let tracker_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8000);
         let aether1 = Aether::new_with_id(Id::new().unwrap(), tracker_addr);
 
@@ -135,6 +135,15 @@ mod tests {
         aether2
             .wait_connection(aether1.get_uid())
             .expect("couldn't connect");
+
+        (aether1, aether2)
+    }
+
+    #[test]
+    pub fn aether_test() {
+        tracker_setup();
+
+        let (aether1, aether2) = init_linked_aether();
 
         let send_str1 = format!("Hello {}", aether2.get_uid());
         aether1
@@ -146,7 +155,6 @@ mod tests {
             .expect("Unable to recv");
 
         let result_str1 = String::from_utf8(result).unwrap();
-        println!("Received message: {}", result_str1);
 
         let send_str2 = format!("Hello {}", aether1.get_uid());
         aether2
@@ -158,7 +166,6 @@ mod tests {
             .expect("Unable to recv");
 
         let result_str2 = String::from_utf8(result).unwrap();
-        println!("Received message: {}", result_str2);
 
         assert_eq!(result_str1, send_str1);
         assert_eq!(result_str2, send_str2);
@@ -168,27 +175,7 @@ mod tests {
     pub fn aether_long_test() {
         tracker_setup();
 
-        let tracker_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8000);
-        let aether1 = Aether::new_with_id(Id::new().unwrap(), tracker_addr);
-
-        let aether2 = Aether::new_with_id(Id::new().unwrap(), tracker_addr);
-
-        println!("{}\n{}", aether1.get_uid(), aether2.get_uid());
-
-        aether1.start();
-        aether2.start();
-
-        aether1.connect(aether2.get_uid());
-
-        aether2.connect(aether1.get_uid());
-
-        aether1
-            .wait_connection(aether2.get_uid())
-            .expect("couldn't connect");
-        aether2
-            .wait_connection(aether1.get_uid())
-            .expect("couldn't connect");
-
+        let (aether1, aether2) = init_linked_aether();
         let buf = gen_nonce(600);
 
         for _ in 0..1000 {
@@ -197,6 +184,17 @@ mod tests {
 
         for _ in 0..1000 {
             let recv = aether2.recv_from(aether1.get_uid()).unwrap();
+            assert_eq!(buf, recv);
+        }
+
+        let buf = gen_nonce(600);
+
+        for _ in 0..1000 {
+            aether2.send_to(aether1.get_uid(), buf.clone()).unwrap();
+        }
+
+        for _ in 0..1000 {
+            let recv = aether1.recv_from(aether2.get_uid()).unwrap();
             assert_eq!(buf, recv);
         }
     }
