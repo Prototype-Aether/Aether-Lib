@@ -188,7 +188,7 @@ impl Packet {
             .miss
             .clone()
             .into_iter()
-            .map(|miss| compile_u16(miss))
+            .map(compile_u16)
             .for_each(|slice_part| slice_miss.extend(slice_part));
         packet_vector.extend(slice_miss);
 
