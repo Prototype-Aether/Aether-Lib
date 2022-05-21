@@ -15,7 +15,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Build Docs
-      run: cargo doc --release
+      run: cargo doc --no-deps --release
 
     - name: Deploy Docs
       uses: peaceiris/actions-gh-pages@v3.7.3

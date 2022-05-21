@@ -23,3 +23,6 @@ crossbeam = "0.8"
 
 [dev-dependencies]
 clippy = "*"
+
+[package.metadata.docs.rs]
+all-features = true
