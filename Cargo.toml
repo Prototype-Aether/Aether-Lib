@@ -18,7 +18,10 @@ applications.
 caregories = ["network-programming"]
 keywords = ["p2p", "communication", "general-purpose", "udp", "udp-holepunching"]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+# Github workflows not needed
+exclude = [
+    ".github/workflows"
+]
 
 [lib]
 name = "aether_lib"
