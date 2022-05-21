@@ -2,7 +2,7 @@ use std::{process::Command, sync::Once, thread};
 
 static INIT: Once = Once::new();
 
-#[doc(hidden)]
+#[cfg(target_os = "linux")]
 fn run(cmd: &str, show_output: bool) {
     let output = if show_output {
         Command::new("sh")
@@ -22,7 +22,7 @@ fn run(cmd: &str, show_output: bool) {
     );
 }
 
-#[doc(hidden)]
+#[cfg(target_os = "linux")]
 pub fn tracker_setup() {
     // need to only setup the tracker once
     INIT.call_once(|| {
