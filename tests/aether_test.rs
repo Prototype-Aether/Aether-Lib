@@ -18,7 +18,7 @@ mod tests {
     use crate::common::tracker_setup;
 
     #[test]
-    pub fn handshake_test() {
+    fn handshake_test() {
         let socket1 = UdpSocket::bind(("0.0.0.0", 0)).unwrap();
         let socket2 = UdpSocket::bind(("0.0.0.0", 0)).unwrap();
 
@@ -140,7 +140,7 @@ mod tests {
     }
 
     #[test]
-    pub fn aether_test() {
+    fn aether_test() {
         tracker_setup();
 
         let (aether1, aether2) = init_linked_aether();
@@ -172,7 +172,7 @@ mod tests {
     }
 
     #[test]
-    pub fn aether_long_test() {
+    fn aether_long_test() {
         tracker_setup();
 
         let (aether1, aether2) = init_linked_aether();
