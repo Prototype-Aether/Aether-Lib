@@ -39,8 +39,5 @@ openssl = { version = "0.10", features = ["vendored"] }
 base64 = "0.13"
 crossbeam = "0.8"
 
-[dev-dependencies]
-clippy = "*"
-
 [package.metadata.docs.rs]
 all-features = true
