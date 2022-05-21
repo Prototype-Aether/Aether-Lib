@@ -135,3 +135,7 @@ pub mod packet;
 pub mod peer;
 pub mod tracker;
 pub mod util;
+
+// tracker setup for tests
+#[doc(hidden)]
+pub mod tracker_setup;

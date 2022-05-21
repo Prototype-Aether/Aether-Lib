@@ -3,7 +3,6 @@ mod tests {
 
     use std::{
         net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket},
-        process::Command,
         thread,
     };
 
@@ -11,27 +10,9 @@ mod tests {
         config::Config,
         identity::Id,
         peer::{handshake::handshake, Aether},
+        tracker_setup::tracker_setup,
         util::gen_nonce,
     };
-
-    pub fn run(cmd: &str, show_output: bool) {
-        let output = if show_output {
-            Command::new("sh")
-                .arg("-c")
-                .arg(cmd)
-                .spawn()
-                .unwrap()
-                .wait_with_output()
-                .unwrap()
-        } else {
-            Command::new("sh").arg("-c").arg(cmd).output().unwrap()
-        };
-        println!(
-            "{}\n{}",
-            String::from_utf8(output.stdout).unwrap(),
-            String::from_utf8(output.stderr).unwrap()
-        );
-    }
 
     #[test]
     pub fn handshake_test() {
@@ -132,13 +113,7 @@ mod tests {
 
     #[test]
     pub fn aether_test() {
-        // Run the tracker server
-        thread::spawn(|| {
-            run("mkdir -p tmp", false);
-            run("curl -L https://github.com/Prototype-Aether/Aether-Tracker/releases/latest/download/aether-tracker-server-x86_64-unknown-linux-gnu --output tmp/aether-tracker-server", false);
-            run("chmod +x tmp/aether-tracker-server", false);
-            run("TRACKER_PORT=8000 tmp/aether-tracker-server", false);
-        });
+        tracker_setup();
 
         let tracker_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8000);
         let aether1 = Aether::new_with_id(Id::new().unwrap(), tracker_addr);
@@ -191,13 +166,7 @@ mod tests {
 
     #[test]
     pub fn aether_long_test() {
-        // Run the tracker server
-        thread::spawn(|| {
-            run("mkdir -p tmp", false);
-            run("curl -L https://github.com/Prototype-Aether/Aether-Tracker/releases/latest/download/aether-tracker-server-x86_64-unknown-linux-gnu --output tmp/aether-tracker-server", false);
-            run("chmod +x tmp/aether-tracker-server", false);
-            run("TRACKER_PORT=8000 tmp/aether-tracker-server", false);
-        });
+        tracker_setup();
 
         let tracker_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8000);
         let aether1 = Aether::new_with_id(Id::new().unwrap(), tracker_addr);

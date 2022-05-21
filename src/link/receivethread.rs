@@ -91,6 +91,7 @@ pub struct ReceiveThread {
 }
 
 impl ReceiveThread {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         socket: Arc<UdpSocket>,
         peer_addr: SocketAddr,
