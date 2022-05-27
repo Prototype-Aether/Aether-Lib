@@ -15,7 +15,7 @@ A library that provides P2P communication for Prototype Aether. Contains the
 implementations of the Aether Protocol. This library can be used to develop P2P
 applications.
 """
-caregories = ["network-programming"]
+categories = ["network-programming"]
 keywords = ["p2p", "communication", "general-purpose", "udp", "udp-holepunching"]
 
 # Github workflows not needed
@@ -38,6 +38,13 @@ thiserror = "1.0"
 openssl = { version = "0.10", features = ["vendored"] }
 base64 = "0.13"
 crossbeam = "0.8"
+
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "packet_compiling"
+harness = false
 
 [package.metadata.docs.rs]
 all-features = true
