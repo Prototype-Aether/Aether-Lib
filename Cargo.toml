@@ -1,6 +1,6 @@
 [package]
 name = "aether_lib"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2018"
 rust-version = "1.60"
 authors = [ "Anish Sharma <aneeshsharma15@outlook.com>",
