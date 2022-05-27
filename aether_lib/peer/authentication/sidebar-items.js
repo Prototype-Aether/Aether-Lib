@@ -1,0 +1,1 @@
+initSidebarItems({"constant":[["NONCE_SIZE","Size of the nonce to be used in authentication in bytes"]],"fn":[["authenticate",""]]});

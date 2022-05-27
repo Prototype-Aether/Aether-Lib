@@ -1,0 +1,51 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Primitives for representing PKC based user identities. Used to identify and authenticate users as well as for key exchange."><meta name="keywords" content="rust, rustlang, rust-lang, identity"><title>aether_lib::identity - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script src="../../crates.js"></script><script defer src="../../main.js"></script>
+    <noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../aether_lib/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div>
+        </a><h2 class="location"></h2>
+    </nav>
+    <nav class="sidebar"><a class="sidebar-logo" href="../../aether_lib/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div>
+        </a><h2 class="location"><a href="#">Module identity</a></h2><div class="sidebar-elems"><section><div class="block"><ul><li><a href="#structs">Structs</a></li><li><a href="#constants">Constants</a></li></ul></div></section><div id="sidebar-vars" data-name="identity" data-ty="mod" data-relpath="./"></div><script defer src="./sidebar-items.js"></script></div></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../aether_lib/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><div class="theme-picker hidden"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="22" height="22" alt="Pick another theme!" src="../../brush.svg"></button><div id="theme-choices" role="menu"></div></div><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></form></nav></div><section id="main-content" class="content"><div class="main-heading">
+    <h1 class="fqn"><span class="in-band">Module <a href="../index.html">aether_lib</a>::<wbr><a class="mod" href="#">identity</a><button id="copy-path" onclick="copy_path(this)" title="Copy item path to clipboard"><img src="../../clipboard.svg" width="19" height="18" alt="Copy item path"></button></span></h1><span class="out-of-band"><a class="srclink" href="../../src/aether_lib/identity/mod.rs.html#1-312">source</a> · <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class="inner">&#x2212;</span>]</a></span></div><details class="rustdoc-toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Primitives for representing PKC based user identities. Used to identify and authenticate users
+as well as for key exchange.</p>
+<p>Current implementation uses RSA as the asymmetric encryption algorithm. But can be replaced in
+the future in favor of more efficient algorithms.</p>
+<h2 id="identity-storage"><a href="#identity-storage">Identity Storage</a></h2>
+<p>The <a href="struct.Id.html" title="Id"><code>Id</code></a> is stored in <code>$HOME/.config/aether/</code> by default. If <code>$HOME</code> cannot be resolved, the
+current working directory is used instead.</p>
+<h2 id="openssl-errors"><a href="#openssl-errors">OpenSSL Errors</a></h2>
+<p>This library uses the <a href="https://crates.io/crates/openssl">OpenSSL wrapper</a> for encryption
+purposes. So, some of the functions can return <a href="../error/enum.AetherError.html#variant.OpenSSLError" title="AetherError::OpenSSLError"><code>AetherError::OpenSSLError</code></a>.
+Check <a href="https://docs.rs/openssl/0.10/openssl/error/struct.ErrorStack.html" title="openssl::error::ErrorStack"><code>openssl::error::ErrorStack</code></a> for detailed description of OpenSSL errors.</p>
+<p>Refer: <a href="https://www.openssl.org/">https://www.openssl.org/</a></p>
+<h2 id="examples"><a href="#examples">Examples</a></h2>
+<p>To load a new identity from the filesystem or create a new identity if not found use
+<code>load_or_generate()</code></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use</span> <span class="ident">aether_lib::identity::Id</span>;
+
+<span class="kw">let</span> <span class="ident">id</span> <span class="op">=</span> <span class="ident">Id::load_or_generate</span>().<span class="ident">unwrap</span>();
+<span class="kw">let</span> <span class="ident">plain_text</span> <span class="op">=</span> <span class="string">&quot;A message to be encrypted&quot;</span>;
+<span class="comment">// Returns a Vec&lt;u8&gt; of cipher text bytes</span>
+<span class="kw">let</span> <span class="ident">cipher_text_bytes</span> <span class="op">=</span> <span class="ident">id</span>.<span class="ident">public_encrypt</span>(<span class="kw-2">&amp;</span><span class="ident">plain_text</span>.<span class="ident">as_bytes</span>()).<span class="ident">unwrap</span>();
+<span class="comment">// Returns a Vec&lt;u8&gt; of decrypted bytes</span>
+<span class="kw">let</span> <span class="ident">decrypted_text_bytes</span> <span class="op">=</span> <span class="ident">id</span>.<span class="ident">private_decrypt</span>(<span class="kw-2">&amp;</span><span class="ident">cipher_text_bytes</span>).<span class="ident">unwrap</span>();
+
+<span class="kw">let</span> <span class="ident">plain_text_decrypted</span> <span class="op">=</span> <span class="ident">String::from_utf8</span>(<span class="ident">decrypted_text_bytes</span>).<span class="ident">unwrap</span>();
+
+<span class="macro">assert_eq!</span>(<span class="ident">plain_text</span>, <span class="ident">plain_text_decrypted</span>);</code></pre></div>
+<p>To generate a new identity use <code>new()</code></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use</span> <span class="ident">aether_lib::identity::Id</span>;
+
+<span class="kw">let</span> <span class="ident">id</span> <span class="op">=</span> <span class="ident">Id::new</span>().<span class="ident">unwrap</span>();</code></pre></div>
+</div></details><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2>
+<div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.Id.html" title="aether_lib::identity::Id struct">Id</a></div><div class="item-right docblock-short"><p>Primitive to represent and store the identity of a user. Used by a user to store their own
+identity.
+Uses asymmetric encryption as the basis for authentication.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.PublicId.html" title="aether_lib::identity::PublicId struct">PublicId</a></div><div class="item-right docblock-short"><p>Primitive to represent public identity of a user. Used by a user to store other users’
+identities
+Different from <code>Id</code> as it is meant to be used to store only public key. So, only used to
+represent identity of other users</p>
+</div></div></div><h2 id="constants" class="small-section-header"><a href="#constants">Constants</a></h2>
+<div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="constant" href="constant.RSA_SIZE.html" title="aether_lib::identity::RSA_SIZE constant">RSA_SIZE</a></div><div class="item-right docblock-short"><p>Size of RSA keys to be used</p>
+</div></div></div></section><section id="search" class="content hidden"></section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="aether_lib" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.60.0 (7737e0b5c 2022-04-04)" ></div>
+</body></html>

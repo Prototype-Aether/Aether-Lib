@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["compile_u16","Compile a 16-bit value into vector of bytes"],["compile_u32","Compile a 32-bit value into vector of bytes"],["gen_nonce","Generate a cryptographically secure random nonce of the given size in bytes"],["xor",""]]});

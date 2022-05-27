@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["needs_ack","Check if a given packet needs to be acknowledged based on the [`PType`]"]],"mod":[["decryptionthread",""],["receivethread",""],["sendthread",""]],"struct":[["Link","Represents a single reliable [`Link`] to another peer"]]});

@@ -1,0 +1,1 @@
+initSidebarItems({"constant":[["MAX_WINDOW",""]],"struct":[["Acknowledgement","Structure to reperesent the Acknowledgement format"],["AcknowledgementCheck","A checklist to store all Acknowledgements received."],["AcknowledgementList","A structure to store the Acknowledgements that need to be sent."]]});

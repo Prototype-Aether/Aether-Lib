@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["aether_lib"] = [{"text":"impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.60.0/std/error/trait.Error.html\" title=\"trait std::error::Error\">Error</a> for <a class=\"enum\" href=\"aether_lib/error/enum.AetherError.html\" title=\"enum aether_lib::error::AetherError\">AetherError</a>","synthetic":false,"types":["aether_lib::error::AetherError"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

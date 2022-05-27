@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["Connection","Enumeration representing different states of a connection"]],"mod":[["authentication",""],["handshake",""]],"struct":[["Aether","[`Aether`] is an interface used to connect to other peers as well as communicate with them"],["Failure",""],["Initialized",""],["Peer",""]]});

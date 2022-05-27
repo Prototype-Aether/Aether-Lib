@@ -1,0 +1,125 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="A library that provides P2P communication for Prototype Aether. Contains the implementations of the Aether Protocol. This library can be used to develop P2P applications. However, Aether Service is the recommended way to interact with Aether."><meta name="keywords" content="rust, rustlang, rust-lang, aether_lib"><title>aether_lib - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../dark.css" disabled><link rel="stylesheet" type="text/css" href="../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../storage.js"></script><script src="../crates.js"></script><script defer src="../main.js"></script>
+    <noscript><link rel="stylesheet" href="../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../favicon.svg"></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../aether_lib/index.html"><div class="logo-container"><img class="rust-logo" src="../rust-logo.svg" alt="logo"></div>
+        </a><h2 class="location"></h2>
+    </nav>
+    <nav class="sidebar"><a class="sidebar-logo" href="../aether_lib/index.html"><div class="logo-container"><img class="rust-logo" src="../rust-logo.svg" alt="logo"></div>
+        </a><h2 class="location"><a href="#">Crate aether_lib</a></h2><div class="sidebar-elems"><div class="block"><ul><li class="version">Version 0.1.2</li><li><a id="all-types" href="all.html">All Items</a></li></div></ul><section><div class="block"><ul><li><a href="#modules">Modules</a></li></ul></div></section><div id="sidebar-vars" data-name="aether_lib" data-ty="mod" data-relpath=""></div><script defer src="sidebar-items.js"></script></div></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../aether_lib/index.html"><img class="rust-logo" src="../rust-logo.svg" alt="logo"></a><nav class="sub"><div class="theme-picker hidden"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="22" height="22" alt="Pick another theme!" src="../brush.svg"></button><div id="theme-choices" role="menu"></div></div><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../wheel.svg"></a></div></form></nav></div><section id="main-content" class="content"><div class="main-heading">
+    <h1 class="fqn"><span class="in-band">Crate <a class="mod" href="#">aether_lib</a><button id="copy-path" onclick="copy_path(this)" title="Copy item path to clipboard"><img src="../clipboard.svg" width="19" height="18" alt="Copy item path"></button></span></h1><span class="out-of-band"><a class="srclink" href="../src/aether_lib/lib.rs.html#1-137">source</a> · <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class="inner">&#x2212;</span>]</a></span></div><details class="rustdoc-toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A library that provides P2P communication for Prototype Aether. Contains the
+implementations of the Aether Protocol. This library can be used to develop
+P2P applications. However, <a href="https://github.com/Prototype-Aether/Aether-Service">Aether Service</a>
+is the recommended way to interact with Aether.</p>
+<h2 id="basic-usage"><a href="#basic-usage">Basic Usage</a></h2>
+<p>Following examples demonstrate the basic usage including connecting to a peer and
+sending and receiving bytes from the peer.</p>
+<h3 id="initializing-a-client"><a href="#initializing-a-client">Initializing a client</a></h3>
+<p>A client can be initialized using <a href="peer/struct.Aether.html"><code>Aether</code></a>. In order to initialize
+a client, you also need to have a tracker server. The tracker server implementation
+can be found <a href="https://github.com/Prototype-Aether/Aether-Tracker">here</a>.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use</span> <span class="ident">std::net</span>::{<span class="ident">IpAddr</span>, <span class="ident">Ipv4Addr</span>, <span class="ident">SocketAddr</span>};
+<span class="kw">use</span> <span class="ident">aether_lib::peer::Aether</span>;
+
+<span class="comment">// address of the tracker server to be used</span>
+<span class="comment">// one is hosted on 149.129.129.226:8982</span>
+<span class="kw">let</span> <span class="ident">tracker_addr</span> <span class="op">=</span> <span class="ident">SocketAddr::new</span>(<span class="ident">IpAddr::V4</span>(<span class="ident">Ipv4Addr::new</span>(<span class="number">149</span>, <span class="number">129</span>, <span class="number">129</span>, <span class="number">226</span>)), <span class="number">8982</span>);
+<span class="comment">// initialize the client</span>
+<span class="kw">let</span> <span class="ident">aether</span> <span class="op">=</span> <span class="ident">Aether::new</span>(<span class="ident">tracker_addr</span>);
+
+<span class="comment">// start the client</span>
+<span class="ident">aether</span>.<span class="ident">start</span>();</code></pre></div>
+<h3 id="connecting-to-a-peer"><a href="#connecting-to-a-peer">Connecting to a peer</a></h3>
+<p>In order to connect to a peer, you need the other peer’s UID. This UID is unique
+to each client and is generated on the first run and saved on the file system (see <a href="identity/index.html">identity</a>).</p>
+<p>You can use the peer’s UID to connect as follows</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use</span> <span class="ident">std::net</span>::{<span class="ident">IpAddr</span>, <span class="ident">Ipv4Addr</span>, <span class="ident">SocketAddr</span>};
+<span class="kw">use</span> <span class="ident">aether_lib::peer::Aether</span>;
+
+<span class="comment">// address of the tracker server to be used</span>
+<span class="comment">// one is hosted on 149.129.129.226:8982</span>
+<span class="kw">let</span> <span class="ident">tracker_addr</span> <span class="op">=</span> <span class="ident">SocketAddr::new</span>(<span class="ident">IpAddr::V4</span>(<span class="ident">Ipv4Addr::new</span>(<span class="number">149</span>, <span class="number">129</span>, <span class="number">129</span>, <span class="number">226</span>)), <span class="number">8982</span>);
+<span class="comment">// initialize the client</span>
+<span class="kw">let</span> <span class="ident">aether</span> <span class="op">=</span> <span class="ident">Aether::new</span>(<span class="ident">tracker_addr</span>);
+
+<span class="comment">// start the client</span>
+<span class="ident">aether</span>.<span class="ident">start</span>();
+
+<span class="comment">// the UID of the other peer</span>
+<span class="kw">let</span> <span class="ident">peer_uid</span> <span class="op">=</span> <span class="ident">String::from</span>(<span class="string">&quot;&lt;peer-uid-here&gt;&quot;</span>);
+
+<span class="comment">// connect to the other peer</span>
+<span class="ident">aether</span>.<span class="ident">connect</span>(<span class="kw-2">&amp;</span><span class="ident">peer_uid</span>);</code></pre></div>
+<h3 id="sending-bytes-to-another-peer"><a href="#sending-bytes-to-another-peer">Sending bytes to another peer</a></h3>
+<p>All communications happen in form of bytes, so you can send <a href="https://doc.rust-lang.org/1.60.0/alloc/vec/struct.Vec.html" title="Vec&lt;u8&gt;"><code>Vec&lt;u8&gt;</code></a>. For example,
+strings can be converted to bytes using <code>string.into_bytes()</code> (this converts to UTF-8
+encoding) and from UTF-8 encoded bytes using <code>let string = String::from_utf8(bytes)</code>.</p>
+<p>In order to send bytes to a user <code>peer_uid</code> you can use <code>send_to()</code></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use</span> <span class="ident">std::net</span>::{<span class="ident">IpAddr</span>, <span class="ident">Ipv4Addr</span>, <span class="ident">SocketAddr</span>};
+<span class="kw">use</span> <span class="ident">aether_lib::peer::Aether</span>;
+
+<span class="comment">// address of the tracker server to be used</span>
+<span class="comment">// one is hosted on 149.129.129.226:8982</span>
+<span class="kw">let</span> <span class="ident">tracker_addr</span> <span class="op">=</span> <span class="ident">SocketAddr::new</span>(<span class="ident">IpAddr::V4</span>(<span class="ident">Ipv4Addr::new</span>(<span class="number">149</span>, <span class="number">129</span>, <span class="number">129</span>, <span class="number">226</span>)), <span class="number">8982</span>);
+<span class="comment">// initialize the client</span>
+<span class="kw">let</span> <span class="ident">aether</span> <span class="op">=</span> <span class="ident">Aether::new</span>(<span class="ident">tracker_addr</span>);
+
+<span class="comment">// start the client</span>
+<span class="ident">aether</span>.<span class="ident">start</span>();
+
+<span class="comment">// the UID of the other peer</span>
+<span class="kw">let</span> <span class="ident">peer_uid</span> <span class="op">=</span> <span class="ident">String::from</span>(<span class="string">&quot;&lt;peer-uid-here&gt;&quot;</span>);
+
+<span class="comment">// connect to the other peer</span>
+<span class="ident">aether</span>.<span class="ident">connect</span>(<span class="kw-2">&amp;</span><span class="ident">peer_uid</span>);
+
+<span class="comment">// message to be sent</span>
+<span class="kw">let</span> <span class="ident">message</span> <span class="op">=</span> <span class="ident">String::from</span>(<span class="string">&quot;Hello&quot;</span>);
+
+<span class="comment">// convert to bytes</span>
+<span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="ident">message</span>.<span class="ident">into_bytes</span>();
+
+<span class="comment">// send to peer with peer_uid</span>
+<span class="ident">aether</span>.<span class="ident">send_to</span>(<span class="kw-2">&amp;</span><span class="ident">peer_uid</span>, <span class="ident">bytes</span>).<span class="ident">unwrap</span>();</code></pre></div>
+<h3 id="receiving-bytes-from-another-peer"><a href="#receiving-bytes-from-another-peer">Receiving bytes from another peer</a></h3>
+<p>In order to receive bytes from a user <code>peer_uid</code> you can use <code>recv_from()</code></p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use</span> <span class="ident">std::net</span>::{<span class="ident">IpAddr</span>, <span class="ident">Ipv4Addr</span>, <span class="ident">SocketAddr</span>};
+<span class="kw">use</span> <span class="ident">aether_lib::peer::Aether</span>;
+
+<span class="comment">// address of the tracker server to be used</span>
+<span class="comment">// one is hosted on 149.129.129.226:8982</span>
+<span class="kw">let</span> <span class="ident">tracker_addr</span> <span class="op">=</span> <span class="ident">SocketAddr::new</span>(<span class="ident">IpAddr::V4</span>(<span class="ident">Ipv4Addr::new</span>(<span class="number">149</span>, <span class="number">129</span>, <span class="number">129</span>, <span class="number">226</span>)), <span class="number">8982</span>);
+<span class="comment">// initialize the client</span>
+<span class="kw">let</span> <span class="ident">aether</span> <span class="op">=</span> <span class="ident">Aether::new</span>(<span class="ident">tracker_addr</span>);
+
+<span class="comment">// start the client</span>
+<span class="ident">aether</span>.<span class="ident">start</span>();
+
+<span class="comment">// the UID of the other peer</span>
+<span class="kw">let</span> <span class="ident">peer_uid</span> <span class="op">=</span> <span class="ident">String::from</span>(<span class="string">&quot;&lt;peer-uid-here&gt;&quot;</span>);
+
+<span class="comment">// connect to the other peer</span>
+<span class="ident">aether</span>.<span class="ident">connect</span>(<span class="kw-2">&amp;</span><span class="ident">peer_uid</span>);
+
+<span class="comment">// receive bytes from peer with peer_uid</span>
+<span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="ident">aether</span>.<span class="ident">recv_from</span>(<span class="kw-2">&amp;</span><span class="ident">peer_uid</span>).<span class="ident">unwrap</span>();
+
+<span class="comment">// decode UTF-8 encoded bytes</span>
+<span class="kw">let</span> <span class="ident">message</span> <span class="op">=</span> <span class="ident">String::from_utf8</span>(<span class="ident">bytes</span>).<span class="ident">unwrap</span>();</code></pre></div>
+</div></details><h2 id="modules" class="small-section-header"><a href="#modules">Modules</a></h2>
+<div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="mod" href="acknowledgement/index.html" title="aether_lib::acknowledgement mod">acknowledgement</a></div><div class="item-right docblock-short"><p>Structures for facilitating storing acknowledgment numbers for verification and
+sending</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="mod" href="config/index.html" title="aether_lib::config mod">config</a></div><div class="item-right docblock-short"><p>Structures to represent configuration used by <code>aether_lib</code></p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="mod" href="encryption/index.html" title="aether_lib::encryption mod">encryption</a></div><div class="item-right docblock-short"><p>Primitives for symmetric encryption for Aether.
+Makes use of AES-256-GCM cipher. Implementation built on top of OpenSSL.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="mod" href="error/index.html" title="aether_lib::error mod">error</a></div><div class="item-right docblock-short"><p>Structures to represent errors in <code>aether_lib</code></p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="mod" href="identity/index.html" title="aether_lib::identity mod">identity</a></div><div class="item-right docblock-short"><p>Primitives for representing PKC based user identities. Used to identify and authenticate users
+as well as for key exchange.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="mod" href="link/index.html" title="aether_lib::link mod">link</a></div><div class="item-right docblock-short"><p>Structure for representing a reliable <a href="link/struct.Link.html" title="Link"><code>Link</code></a> between 2 peers.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="mod" href="packet/index.html" title="aether_lib::packet mod">packet</a></div><div class="item-right docblock-short"><p>Primitives for representing a unit of packet in Aether.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="mod" href="peer/index.html" title="aether_lib::peer mod">peer</a></div><div class="item-right docblock-short"><p>Structure for representing an <a href="peer/struct.Aether.html" title="Aether"><code>Aether</code></a> client.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="mod" href="tracker/index.html" title="aether_lib::tracker mod">tracker</a></div><div class="item-right docblock-short"><p>Primitives for representing packets used to communicate with the tracker server</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="mod" href="util/index.html" title="aether_lib::util mod">util</a></div><div class="item-right docblock-short"><p>General purpose utilities used by <a href="index.html"><code>aether_lib</code></a> often.</p>
+</div></div></div></section><section id="search" class="content hidden"></section></div></main><div id="rustdoc-vars" data-root-path="../" data-current-crate="aether_lib" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.60.0 (7737e0b5c 2022-04-04)" ></div>
+</body></html>
